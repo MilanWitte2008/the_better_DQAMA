@@ -147,9 +147,41 @@ $escape = static fn (string $value): string => htmlspecialchars($value, ENT_QUOT
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?= $escape($activeItem['label']) ?> - Ontwikkelplatform</title>
   <link rel="stylesheet" href="style.css">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="dashboard-page sidebar-<?= $escape($role) ?>">
-  <div class="screen">
+  <div class="screen active">
+    <?php if ($role === 'coach'): ?>
+    <header class="screenbar photo-topbar">
+      <div class="photo-greeting">
+        <h1>Goedemiddag, <?= $escape($sidebarData['name']) ?>!</h1>
+        <p>Bekijk hoe je studenten zich ontwikkelen en welke voortgang aandacht vraagt.</p>
+      </div>
+      <div class="photo-top-actions">
+        <form class="photo-search" method="get" action="docent.php">
+          <span aria-hidden="true">⌕</span>
+          <input type="hidden" name="page" value="studenten">
+          <input
+            type="search"
+            name="q"
+            placeholder="Zoek student of onderdeel..."
+            value="<?= $escape((string) ($coachPageData['search'] ?? '')) ?>"
+            aria-label="Zoek een student"
+          >
+        </form>
+        <div class="photo-profile">
+          <span class="avatar <?= $escape($config['avatarClass']) ?>"><?= $escape($coachPageData['initials'] ?? $sidebarData['initials']) ?></span>
+          <span>
+            <b><?= $escape($sidebarData['name']) ?></b>
+            <small><?= $escape($config['roleLabel']) ?></small>
+          </span>
+        </div>
+        <a class="logout-btn" href="logout.php">Uitloggen</a>
+      </div>
+    </header>
+    <?php else: ?>
     <header class="screenbar">
       <b><?= $escape($activeItem['label']) ?></b>
       <div class="screen-actions">
@@ -157,12 +189,17 @@ $escape = static fn (string $value): string => htmlspecialchars($value, ENT_QUOT
         <span><?= $escape($sidebarData['name']) ?></span>
       </div>
     </header>
+    <?php endif; ?>
     <div class="screenbody">
       <?php require __DIR__ . '/sidebar.php'; ?>
       <main class="main">
-        <h2><?= $escape($activeItem['label']) ?></h2>
-        <?php if ($currentPage === 'dashboard'): ?>
-          <small>Welkom terug, <?= $escape($sidebarData['name']) ?>.</small>
+        <?php if ($role === 'coach'): ?>
+          <?php require __DIR__ . '/docent-view.php'; ?>
+        <?php else: ?>
+          <h2><?= $escape($activeItem['label']) ?></h2>
+          <?php if ($currentPage === 'dashboard'): ?>
+            <small>Welkom terug, <?= $escape($sidebarData['name']) ?>.</small>
+          <?php endif; ?>
         <?php endif; ?>
       </main>
     </div>
