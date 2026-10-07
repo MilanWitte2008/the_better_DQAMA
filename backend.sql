@@ -196,7 +196,9 @@ INSERT INTO `lid` (`idlid`, `voornaam`, `achternaam`, `email`, `wachtwoord`, `st
 (101, 'Emma', 'Jansen', 'emma@example.com', 'test123', 'actief', '2026-10-02 11:43:06', 101, 101),
 (102, 'Liam', 'de Vries', 'liam@example.com', 'test123', 'actief', '2026-10-02 11:43:06', 101, 101),
 (103, 'Noah', 'Bakker', 'noah@example.com', 'test123', 'actief', '2026-10-02 11:43:06', 101, 102),
-(104, 'Sophie', 'Visser', 'sophie@example.com', 'test123', 'actief', '2026-10-02 11:43:06', 102, 101);
+(104, 'Sophie', 'Visser', 'sophie@example.com', 'test123', 'actief', '2026-10-02 11:43:06', 102, 101),
+(105, 'Iris', 'Beheer', 'iris@example.com', 'test123', 'actief', '2026-10-02 11:43:06', 103, 101),
+(106, 'Milan', 'Manager', 'milan@example.com', 'test123', 'actief', '2026-10-02 11:43:06', 104, 101);
 
 -- --------------------------------------------------------
 
@@ -237,12 +239,10 @@ CREATE TABLE `rol` (
 --
 
 INSERT INTO `rol` (`idrol`, `naam`, `beschrijving`) VALUES
-(1, 'Admin', 'Beheerder van de website'),
-(2, 'Student', 'Leerling'),
-(3, 'Coach', 'Begeleider'),
 (101, 'Student', 'Volgt een opleiding'),
 (102, 'Coach', 'Begeleidt studenten'),
-(103, 'Admin', 'Beheert de applicatie');
+(103, 'Admin', 'Beheert de applicatie'),
+(104, 'Teammanager', 'Bekijkt teamoverzichten en voortgang');
 
 -- --------------------------------------------------------
 
@@ -498,7 +498,7 @@ ALTER TABLE `leeruitkomsten`
 -- AUTO_INCREMENT voor een tabel `lid`
 --
 ALTER TABLE `lid`
-  MODIFY `idlid` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=105;
+  MODIFY `idlid` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=107;
 
 --
 -- AUTO_INCREMENT voor een tabel `reflectie`
@@ -510,7 +510,7 @@ ALTER TABLE `reflectie`
 -- AUTO_INCREMENT voor een tabel `rol`
 --
 ALTER TABLE `rol`
-  MODIFY `idrol` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=104;
+  MODIFY `idrol` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=105;
 
 --
 -- AUTO_INCREMENT voor een tabel `school`
