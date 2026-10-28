@@ -44,7 +44,11 @@
                 <?php if($errors->any()): ?>
                     <div class="login-error" role="alert">
                         <strong>Inloggen is niet gelukt.</strong>
-                        <span><?php echo e($errors->first('email')); ?></span>
+                        <?php $__empty_1 = true; $__currentLoopData = $errors->all(); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $message): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                            <span><?php echo e($message); ?></span>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                            <span>Controleer je e-mailadres en wachtwoord en probeer het opnieuw.</span>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
 
@@ -62,7 +66,7 @@
                         inputmode="email"
                         required
                         autofocus
-                        aria-describedby="email-error"
+                        <?php if($errors->has('email')): ?> aria-describedby="email-error" <?php endif; ?>
                     >
                     <?php $__errorArgs = ['email'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
@@ -86,6 +90,16 @@ unset($__errorArgs, $__bag); ?>
                         autocomplete="current-password"
                         required
                     >
+                    <?php $__errorArgs = ['password'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+                        <p id="password-error" class="field-error"><?php echo e($message); ?></p>
+                    <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
 
                     <button class="login-submit" type="submit">
                         <span>Inloggen</span>

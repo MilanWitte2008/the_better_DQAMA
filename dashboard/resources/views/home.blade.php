@@ -44,7 +44,11 @@
                 @if ($errors->any())
                     <div class="login-error" role="alert">
                         <strong>Inloggen is niet gelukt.</strong>
-                        <span>{{ $errors->first('email') }}</span>
+                        @forelse ($errors->all() as $message)
+                            <span>{{ $message }}</span>
+                        @empty
+                            <span>Controleer je e-mailadres en wachtwoord en probeer het opnieuw.</span>
+                        @endforelse
                     </div>
                 @endif
 
@@ -62,7 +66,7 @@
                         inputmode="email"
                         required
                         autofocus
-                        aria-describedby="email-error"
+                        @if ($errors->has('email')) aria-describedby="email-error" @endif
                     >
                     @error('email')
                         <p id="email-error" class="field-error">{{ $message }}</p>
@@ -79,6 +83,9 @@
                         autocomplete="current-password"
                         required
                     >
+                    @error('password')
+                        <p id="password-error" class="field-error">{{ $message }}</p>
+                    @enderror
 
                     <button class="login-submit" type="submit">
                         <span>Inloggen</span>
