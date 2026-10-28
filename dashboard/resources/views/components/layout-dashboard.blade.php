@@ -8,15 +8,15 @@
     @vite(['resources/css/app.css', 'resources/css/dashboard.css'])
 </head>
 <body class="app-body">
-    {{-- Menu en rolbenamingen verschillen per dashboardrol. --}}
+    {{-- Bepaal het menu en de rolnaam voor de ingelogde gebruiker. --}}
     @php
         $roleKey = $roleKey ?? auth()->user()->dashboardRoleKey();
         $roleLabels = ['student' => 'Student · ICT', 'docent' => 'Docent', 'beheerder' => 'Applicatiebeheerder', 'teamleider' => 'Teamleider'];
         $menuItems = [
-            'student' => [['⌂', 'Dashboard', '#top'], ['◉', 'Mijn ontwikkeling', '#ontwikkeling'], ['◷', 'Uren & resultaten', '#uren'], ['◇', 'Mijn leerdoelen', '#leerdoelen'], ['▤', 'Reflecties', '#reflecties'], ['↔', 'Vergelijken', '#vergelijken'], ['☷', 'Gesprekken', '#gesprekken']],
-            'docent' => [['⌂', 'Dashboard', '#top'], ['♙', 'Studenten', '#studenten'], ['☷', 'Coachgesprekken', '#gesprekken'], ['▤', 'Notities', '#notities'], ['▥', 'Rapportages', '#rapportages']],
-            'beheerder' => [['⌂', 'Dashboard', '#top'], ['♙', 'Gebruikers', '#gebruikers'], ['⚿', 'Rollen & rechten', '#rollen'], ['▦', 'Scholen', '#scholen'], ['⚙', 'Systeemstatus', '#systeem']],
-            'teamleider' => [['⌂', 'Dashboard', '#top'], ['♙', 'Studenten & groepen', '#groepen'], ['▥', 'Rapportages', '#rapportages'], ['↗', 'Trends', '#trends'], ['⚙', 'Instellingen', '#instellingen']],
+            'student' => [['⌂', 'Dashboard', 'all'], ['◉', 'Mijn ontwikkeling', 'ontwikkeling'], ['◷', 'Uren & resultaten', 'uren'], ['◇', 'Mijn leerdoelen', 'leerdoelen'], ['▤', 'Reflecties', 'reflecties'], ['↔', 'Vergelijken', 'vergelijken'], ['☷', 'Gesprekken', 'gesprekken']],
+            'docent' => [['⌂', 'Dashboard', 'all'], ['♙', 'Studenten', 'studenten'], ['☷', 'Coachgesprekken', 'gesprekken'], ['▤', 'Notities', 'notities'], ['▥', 'Rapportages', 'rapportages']],
+            'beheerder' => [['⌂', 'Dashboard', 'all'], ['♙', 'Gebruikers', 'gebruikers'], ['⚿', 'Rollen & rechten', 'rollen'], ['▦', 'Scholen', 'scholen'], ['⚙', 'Systeemstatus', 'systeem']],
+            'teamleider' => [['⌂', 'Dashboard', 'all'], ['♙', 'Studenten & groepen', 'groepen'], ['▥', 'Rapportages', 'rapportages'], ['↗', 'Trends', 'trends'], ['⚙', 'Instellingen', 'instellingen']],
         ];
         $currentRoleKey = $roleKey ?? 'student';
     @endphp
@@ -31,15 +31,17 @@
                 <span class="avatar">{{ strtoupper(substr(auth()->user()->voornaam ?? 'A', 0, 1) . substr(auth()->user()->achternaam ?? 'V', 0, 1)) }}</span>
                 <span><strong>{{ auth()->user()->voornaam ?? 'Alex' }} {{ auth()->user()->achternaam ?? 'de Vries' }}</strong><small>{{ $roleLabels[$currentRoleKey] ?? 'Gebruiker' }}</small></span>
             </div>
+            {{-- Deze knoppen filteren de onderdelen binnen hetzelfde dashboard. --}}
             <nav class="side-nav" aria-label="Hoofdnavigatie">
-                @foreach (($menuItems[$currentRoleKey] ?? $menuItems['student']) as [$icon, $label, $anchor])
-                    <a class="{{ $loop->first ? 'active' : '' }}" href="{{ $loop->first ? route('dashboard') : $anchor }}"><span>{{ $icon }}</span> {{ $label }}</a>
+                @foreach (($menuItems[$currentRoleKey] ?? $menuItems['student']) as [$icon, $label, $target])
+                    <button class="side-nav-button {{ $loop->first ? 'active' : '' }}" type="button" data-dashboard-target="{{ $target }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}"><span>{{ $icon }}</span> {{ $label }}</button>
                 @endforeach
             </nav>
             <div class="sidebar-footer"><strong>Systeem online</strong><small>Persoonlijk dashboard</small></div>
         </aside>
 
         <div class="main-column">
+            {{-- Bovenbalk met begroeting, zoeken, meldingen en uitloggen. --}}
             <header class="topbar" id="top">
                 <div>
                     <h1>@yield('welcome-title', 'Goedemiddag, ' . (auth()->user()->voornaam ?? 'welkom') . '!') <span aria-hidden="true">👋</span></h1>
@@ -56,10 +58,29 @@
                 </div>
             </header>
 
+            {{-- Hier wordt de inhoud van het gekozen roldashboard geplaatst. --}}
             <main class="page-content">
                 @yield('content')
             </main>
         </div>
     </div>
+    {{-- Zijbalkknoppen tonen alleen de gekozen sectie en laden geen aparte pagina. --}}
+    <script>
+        document.querySelectorAll('[data-dashboard-target]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const target = button.dataset.dashboardTarget;
+
+                document.querySelectorAll('[data-dashboard-section]').forEach((section) => {
+                    section.hidden = target !== 'all' && section.dataset.dashboardSection !== target;
+                });
+
+                document.querySelectorAll('[data-dashboard-target]').forEach((item) => {
+                    const active = item === button;
+                    item.classList.toggle('active', active);
+                    item.setAttribute('aria-pressed', String(active));
+                });
+            });
+        });
+    </script>
 </body>
 </html>
