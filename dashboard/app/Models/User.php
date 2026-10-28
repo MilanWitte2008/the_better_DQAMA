@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class User extends Authenticatable
 {
@@ -21,6 +22,22 @@ class User extends Authenticatable
     public function getAuthPasswordName(): string
     {
         return 'wachtwoord';
+    }
+
+    public function rol(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'rol_idrol', 'idrol');
+    }
+
+    public function dashboardRoleKey(): ?string
+    {
+        return match (strtolower((string) $this->rol?->naam)) {
+            'student' => 'student',
+            'coach', 'docent' => 'docent',
+            'admin', 'applicatiebeheerder', 'beheerder' => 'beheerder',
+            'teammanager', 'teamleider', 'manager' => 'teamleider',
+            default => null,
+        };
     }
 
     protected function casts(): array
