@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => view('home'))->name('login');
 
 // Beperk loginpogingen om automatisch raden van wachtwoorden af te remmen.
-Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10.1,1')->name('login.attempt');
 
 // Het dashboard kiest zelf de juiste pagina aan de hand van de rol.
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
