@@ -30,9 +30,9 @@ class AuthController extends Controller
 
         if (! $passwordMatches) {
             // Geef een foutmelding en vul het e-mailadres alvast opnieuw in.
-            return back()->withErrors([
-                'credentials' => 'Het e-mailadres of wachtwoord is onjuist.',
-            ])->onlyInput('email');
+            return back()
+                ->with('login_error', 'Het e-mailadres of wachtwoord is onjuist.')
+                ->onlyInput('email');
         }
 
         // Zet een oud, onversleuteld wachtwoord na een geslaagde login om naar een veilige hash.

@@ -41,14 +41,18 @@
                 <h2 id="login-title">Log in op je account</h2>
                 <p class="login-subtitle">Vul je gegevens in om verder te gaan.</p>
 
-                @if ($errors->any())
+                @if (session('login_error') || $errors->any())
                     <div class="login-error" role="alert">
                         <strong>Inloggen is niet gelukt.</strong>
-                        @forelse ($errors->all() as $message)
+                        @if (session('login_error'))
+                            <span>{{ session('login_error') }}</span>
+                        @else
+                            @forelse ($errors->all() as $message)
                             <span>{{ $message }}</span>
-                        @empty
-                            <span>Controleer je e-mailadres en wachtwoord en probeer het opnieuw.</span>
-                        @endforelse
+                            @empty
+                                <span>Controleer je e-mailadres en wachtwoord en probeer het opnieuw.</span>
+                            @endforelse
+                        @endif
                     </div>
                 @endif
 
