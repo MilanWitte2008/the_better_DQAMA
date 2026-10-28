@@ -3,7 +3,7 @@
 
 @section('title', 'Studentdashboard')
 @section('welcome-title', 'Goedemiddag, ' . ($user->voornaam ?? 'student') . '!')
-@section('welcome-subtitle', 'Je totale voortgang is 72%. Bekijk jouw ontwikkeling, leeruitkomsten en uren.')
+@section('welcome-subtitle', '')
 
 @section('content')
     {{-- Overzicht met voortgang, leeruitkomsten, uren en persoonlijke doelen. --}}

@@ -2,10 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -17,30 +15,13 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        // Zoek de gebruiker op met het opgegeven e-mailadres.
-        $user = User::where('email', $data['email'])->first();
-
-        // Haal het opgeslagen wachtwoord op; gebruik een lege tekst als de gebruiker niet bestaat.
-        $storedPassword = (string) ($user?->wachtwoord ?? '');
-        // Accepteer een veilig gehasht wachtwoord, of een oud wachtwoord dat nog onversleuteld is opgeslagen.
-        $passwordMatches = $user !== null && (
-            password_verify($data['password'], $storedPassword)
-            || hash_equals($storedPassword, $data['password'])
-        );
-
-        if (! $passwordMatches) {
+        // Laravel zoekt de gebruiker en controleert het wachtwoord.
+        if (! Auth::attempt($data)) {
             // Geef een foutmelding en vul het e-mailadres alvast opnieuw in.
             return back()->withErrors(['email' => 'Inloggegevens zijn onjuist.'])->onlyInput('email');
         }
 
-        // Zet een oud, onversleuteld wachtwoord na een geslaagde login om naar een veilige hash.
-        if (hash_equals($storedPassword, $data['password'])) {
-            $user->wachtwoord = Hash::make($data['password']);
-            $user->save();
-        }
-
-        // Markeer de gebruiker als ingelogd en vernieuw de sessie om sessiefraude te voorkomen.
-        Auth::login($user);
+        // Vernieuw de sessie nadat de gebruiker is ingelogd.
         $request->session()->regenerate();
 
         // Stuur door naar de pagina die de gebruiker wilde openen, of anders naar het dashboard.
