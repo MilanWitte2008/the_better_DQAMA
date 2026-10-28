@@ -1,3 +1,4 @@
+{{-- Blade-weergave: docent.blade. Deze view gebruikt de gedeelde dashboardlayout waar van toepassing. --}}
 @extends('components.layout-dashboard')
 
 @section('title', 'Docentdashboard')

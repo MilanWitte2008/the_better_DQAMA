@@ -1,3 +1,4 @@
+{{-- Gedeelde Blade-layout: alle rolpagina's vullen de titel, welkomsttekst en inhoud in. --}}
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -7,6 +8,7 @@
     @vite(['resources/css/app.css', 'resources/css/dashboard.css'])
 </head>
 <body class="app-body">
+    {{-- Menu en rolbenamingen verschillen per dashboardrol. --}}
     @php
         $roleKey = $roleKey ?? auth()->user()->dashboardRoleKey();
         $roleLabels = ['student' => 'Student · ICT', 'docent' => 'Docent', 'beheerder' => 'Applicatiebeheerder', 'teamleider' => 'Teamleider'];
@@ -18,6 +20,7 @@
         ];
         $currentRoleKey = $roleKey ?? 'student';
     @endphp
+    {{-- Hoofdomhulsel met vaste zijbalk en het centrale paginagedeelte. --}}
     <div class="dashboard-shell">
         <aside class="sidebar">
             <a class="brand" href="{{ route('dashboard') }}">

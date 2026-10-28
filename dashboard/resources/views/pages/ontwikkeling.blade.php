@@ -1,3 +1,4 @@
+{{-- Blade-weergave: ontwikkeling.blade. Deze view gebruikt de gedeelde dashboardlayout waar van toepassing. --}}
 @extends('components.layout-dashboard')
 @section('title', 'Mijn ontwikkeling')
 @section('content')
