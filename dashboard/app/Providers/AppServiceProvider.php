@@ -11,6 +11,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Registreer hier eventuele eigen services in de Laravel-container.
         //
     }
 
@@ -19,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Plaats hier instellingen die bij het opstarten van de applicatie nodig zijn.
         //
     }
 }

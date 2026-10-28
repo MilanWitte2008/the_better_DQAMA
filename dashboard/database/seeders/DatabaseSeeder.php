@@ -8,9 +8,11 @@ use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
+    // Maakt voorbeeldrollen en testgebruikers aan voor lokaal gebruik.
     public function run(): void
     {
         // Zorg dat de rollen bestaan en onthoud hun database-ID's.
+        // Interne rolcodes worden gekoppeld aan de namen die in de database staan.
         $roles = [
             'student' => ['Student', 'Volgt een opleiding'],
             'docent' => ['Coach', 'Begeleidt studenten'],
