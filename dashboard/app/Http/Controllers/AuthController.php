@@ -15,10 +15,24 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
+        // Zoek de gebruiker op met het opgegeven e-mailadres.
+        $user = User::where('email', $data['email'])->first();
+
+        // Haal het opgeslagen wachtwoord op; gebruik een lege tekst als de gebruiker niet bestaat.
+        $storedPassword = (string) ($user?->wachtwoord ?? '');
+        // Accepteer een veilig gehasht wachtwoord, of een oud wachtwoord dat nog onversleuteld is opgeslagen.
+        $passwordMatches = $user !== null && (
+            password_verify($data['password'], $storedPassword)
+            || hash_equals($storedPassword, $data['password'])
+        );
+
+        if (! $passwordMatches || strtolower((string) $user?->status) !== 'actief') {
         // Laravel zoekt de gebruiker en controleert het wachtwoord.
         if (! Auth::attempt($data)) {
             // Geef een foutmelding en vul het e-mailadres alvast opnieuw in.
-            return back()->withErrors(['email' => 'Inloggegevens zijn onjuist.'])->onlyInput('email');
+            return back()
+                ->with('login_error', 'Controleer je e-mailadres en wachtwoord en probeer het opnieuw.')
+                ->onlyInput('email');
         }
 
         // Vernieuw de sessie nadat de gebruiker is ingelogd.
