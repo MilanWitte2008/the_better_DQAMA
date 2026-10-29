@@ -28,7 +28,7 @@ class AuthController extends Controller
             || hash_equals($storedPassword, $data['password'])
         );
 
-        if (! $passwordMatches) {
+        if (! $passwordMatches || strtolower((string) $user?->status) !== 'actief') {
             // Geef een foutmelding en vul het e-mailadres alvast opnieuw in.
             return back()
                 ->with('login_error', 'Het e-mailadres of wachtwoord is onjuist.')
