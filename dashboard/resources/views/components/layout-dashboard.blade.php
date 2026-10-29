@@ -1,3 +1,6 @@
+@if(($roleKey ?? auth()->user()?->dashboardRoleKey()) === 'beheerder')
+    @include('components.layout-admin')
+@else
 {{-- Gedeelde Blade-layout: alle rolpagina's vullen de titel, welkomsttekst en inhoud in. --}}
 <!DOCTYPE html>
 <html lang="nl">
@@ -7,7 +10,7 @@
     <title>@yield('title', 'Ontwikkelplatform')</title>
     @vite(['resources/css/app.css', 'resources/css/dashboard.css'])
 </head>
-<body class="app-body">
+<body class="app-body {{ ($roleKey ?? '') === 'beheerder' ? 'admin-body' : '' }}">
     {{-- Bepaal het menu en de rolnaam voor de ingelogde gebruiker. --}}
     @php
         $roleKey = $roleKey ?? auth()->user()->dashboardRoleKey();
@@ -37,7 +40,7 @@
                     <button class="side-nav-button {{ $loop->first ? 'active' : '' }}" type="button" data-dashboard-target="{{ $target }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}"><span>{{ $icon }}</span> {{ $label }}</button>
                 @endforeach
             </nav>
-            <div class="sidebar-footer"><strong>Systeem online</strong><small>Persoonlijk dashboard</small></div>
+            <div class="sidebar-footer"><strong>{{ $currentRoleKey === 'beheerder' ? 'Beheeromgeving' : 'Systeem online' }}</strong><small>Persoonlijk dashboard</small></div>
         </aside>
 
         <div class="main-column">
@@ -48,8 +51,10 @@
                     <p>@yield('welcome-subtitle', 'Bekijk hier jouw persoonlijke ontwikkeling en voortgang.')</p>
                 </div>
                 <div class="topbar-actions">
+                    @if($currentRoleKey !== 'beheerder')
                     <label class="search-box"><span>⌕</span><input type="search" placeholder="Zoeken..."></label>
                     <span class="notification" aria-label="Meldingen">♧<i>3</i></span>
+                    @endif
                     <span class="avatar avatar-light">{{ strtoupper(substr(auth()->user()->voornaam ?? 'A', 0, 1) . substr(auth()->user()->achternaam ?? 'V', 0, 1)) }}</span>
                     <form method="POST" action="{{ url('/logout') }}">
                         @csrf
@@ -69,6 +74,10 @@
         document.querySelectorAll('[data-dashboard-target]').forEach((button) => {
             button.addEventListener('click', () => {
                 const target = button.dataset.dashboardTarget;
+                if (!document.querySelector('[data-dashboard-section]')) {
+                    window.location.href = @json(route('dashboard')) + '#' + target;
+                    return;
+                }
 
                 document.querySelectorAll('[data-dashboard-section]').forEach((section) => {
                     section.hidden = target !== 'all' && section.dataset.dashboardSection !== target;
@@ -81,6 +90,11 @@
                 });
             });
         });
+        const initialSection = window.location.hash.slice(1);
+        const initialButton = Array.from(document.querySelectorAll('[data-dashboard-target]')).find(button => button.dataset.dashboardTarget === initialSection);
+        if (initialButton && document.querySelector('[data-dashboard-section]')) initialButton.click();
     </script>
 </body>
 </html>
+
+@endif
