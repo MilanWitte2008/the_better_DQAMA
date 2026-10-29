@@ -22,5 +22,6 @@ Route::middleware('auth')->prefix('beheer')->name('beheer.')->group(function () 
     Route::post('/gebruikers', [ApplicationAdminController::class, 'store'])->name('members.store');
     Route::get('/gebruikers/{member}/bewerken', [ApplicationAdminController::class, 'edit'])->name('members.edit');
     Route::put('/gebruikers/{member}', [ApplicationAdminController::class, 'update'])->name('members.update');
+    Route::delete('/gebruikers/{member}', [ApplicationAdminController::class, 'destroy'])->name('members.destroy');
     Route::post('/scholen', [ApplicationAdminController::class, 'storeSchool'])->name('schools.store');
 });

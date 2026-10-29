@@ -3,7 +3,10 @@ const navLinks = [...document.querySelectorAll('[data-admin-target]')];
 
 function showSection() {
     if (!dashboard) {
-        navLinks.forEach(link => link.removeAttribute('aria-current'));
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            link.removeAttribute('aria-current');
+        });
         return;
     }
     const requested = window.location.hash.slice(1);
@@ -17,7 +20,9 @@ function showSection() {
             : element.dataset.dashboardSection !== section;
     });
     navLinks.forEach(link => {
-        if (link.dataset.adminTarget === section) link.setAttribute('aria-current', 'page');
+        const isActive = link.dataset.adminTarget === section;
+        link.classList.toggle('active', isActive);
+        if (isActive) link.setAttribute('aria-current', 'page');
         else link.removeAttribute('aria-current');
     });
 }

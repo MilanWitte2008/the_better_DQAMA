@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -109,7 +110,28 @@ class ApplicationAdminController extends Controller
         $this->authorizeAdmin($request);
         $this->saveMember($request, $member);
 
-        return redirect()->route('dashboard')->with('success', 'Gebruiker bijgewerkt.');
+        return redirect()->to(route('dashboard').'#gebruikers')->with('success', 'Gebruiker bijgewerkt.');
+    }
+
+    public function destroy(Request $request, User $member)
+    {
+        $this->authorizeAdmin($request);
+
+        if ($member->is($request->user())) {
+            return redirect()->to(route('dashboard').'#gebruikers')
+                ->withErrors(['member' => 'Je kunt je eigen account niet verwijderen.']);
+        }
+
+        foreach (['student', 'coach'] as $profileTable) {
+            if (Schema::hasTable($profileTable) && DB::table($profileTable)->where('lid_idlid', $member->getKey())->exists()) {
+                return redirect()->to(route('dashboard').'#gebruikers')
+                    ->withErrors(['member' => 'Deze gebruiker heeft nog een student- of coachprofiel en kan daarom niet worden verwijderd.']);
+            }
+        }
+
+        $member->delete();
+
+        return redirect()->to(route('dashboard').'#gebruikers')->with('success', 'Gebruiker verwijderd.');
     }
 
     private function saveMember(Request $request, User $member): void
