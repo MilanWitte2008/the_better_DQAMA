@@ -43,7 +43,7 @@
 
                 @if (session('login_error') || $errors->any())
                     <div class="login-error" role="alert">
-                        <strong>Inloggen is niet gelukt.</strong>
+                        <strong>Het e-mailadres of wachtwoord is verkeerd.</strong>
                         @if (session('login_error'))
                             <span>{{ session('login_error') }}</span>
                         @else

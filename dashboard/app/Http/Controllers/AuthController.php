@@ -31,7 +31,7 @@ class AuthController extends Controller
         if (! $passwordMatches || strtolower((string) $user?->status) !== 'actief') {
             // Geef een foutmelding en vul het e-mailadres alvast opnieuw in.
             return back()
-                ->with('login_error', 'Het e-mailadres of wachtwoord is onjuist.')
+                ->with('login_error', 'Controleer je e-mailadres en wachtwoord en probeer het opnieuw.')
                 ->onlyInput('email');
         }
 

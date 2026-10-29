@@ -41,13 +41,17 @@
                 <h2 id="login-title">Log in op je account</h2>
                 <p class="login-subtitle">Vul je gegevens in om verder te gaan.</p>
 
-                <?php if($errors->any()): ?>
+                <?php if(session('login_error') || $errors->any()): ?>
                     <div class="login-error" role="alert">
-                        <strong>Inloggen is niet gelukt.</strong>
-                        <?php $__empty_1 = true; $__currentLoopData = $errors->all(); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $message): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                        <strong>Het e-mailadres of wachtwoord is verkeerd.</strong>
+                        <?php if(session('login_error')): ?>
+                            <span><?php echo e(session('login_error')); ?></span>
+                        <?php else: ?>
+                            <?php $__empty_1 = true; $__currentLoopData = $errors->all(); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $message): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                             <span><?php echo e($message); ?></span>
-                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
-                            <span>Controleer je e-mailadres en wachtwoord en probeer het opnieuw.</span>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                                <span>Controleer je e-mailadres en wachtwoord en probeer het opnieuw.</span>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>
