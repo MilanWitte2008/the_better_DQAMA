@@ -134,17 +134,10 @@ progress::-moz-progress-bar { background: #08aa91; border-radius: 20px; }
 .role-legend li>span:nth-child(2) { flex: 1; }
 .role-legend strong { min-width: 17px; font-weight: 600; text-align: right; }
 .role-legend small { min-width: 30px; color: #8ca0a8; font-size: 10px; text-align: right; }
-.overview-bottom { display: grid; grid-template-columns: 1.15fr 1fr 1.15fr; gap: 20px; margin-bottom: 23px; }
+.overview-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 23px; }
 .overview-bottom .panel { padding: 22px; }
 .soft-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #e8f1fa; flex-shrink: 0; }
 .soft-icon img { opacity: .5; }
-.school-bars { display: grid; gap: 17px; }
-.school-bar>div { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 7px; font-size: 10px; }
-.school-bar strong { font-weight: 500; }
-.school-bar span { color: #80959e; font-size: 10px; white-space: nowrap; }
-.school-bar progress { height: 5px; }
-.school-bar:nth-child(2) progress::-webkit-progress-value { background: #358dc1; }
-.school-bar:nth-child(3) progress::-webkit-progress-value { background: #8dbbbb; }
 .panel-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 19px; padding-top: 12px; border-top: 1px solid #e3ecee; font-size: 10px; color: #246aab; font-weight: 500; }
 .panel-link img { opacity: .5; }
 .access-value { margin: 2px 0 20px; }
@@ -207,16 +200,10 @@ progress::-moz-progress-bar { background: #08aa91; border-radius: 20px; }
 .admin-role-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 15px; }
 .admin-role-card { padding: 20px; border: 1px solid #e1eceb; background: #f2f7fc; border-radius: 13px; }
 .role-icon { opacity: .5; }
-.admin-role-card h4,.admin-school-card h4 { font-size: 14px; margin: 12px 0 8px; font-weight: 600; }
-.admin-role-card p,.admin-school-card p { font-size: 12px; color: #748f98; margin: 6px 0 15px; line-height: 1.7; overflow-wrap: anywhere; }
+.admin-role-card h4 { font-size: 14px; margin: 12px 0 8px; font-weight: 600; }
+.admin-role-card p { font-size: 12px; color: #748f98; margin: 6px 0 15px; line-height: 1.7; overflow-wrap: anywhere; }
 .admin-role-card>strong { font-size: 12px; color: #258979; }
 .widget-detail { display: block; font-size: 10px; margin-top: 18px; color: #829aa3; }
-.admin-school-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 15px; }
-.admin-school-card { display: flex; gap: 14px; padding: 18px; border: 1px solid #e2ebed; border-radius: 13px; }
-.admin-school-card h4 { margin-top: 0; }
-.admin-school-card>div { min-width: 0; }
-.admin-details { margin-top: 22px; border-top: 1px solid #e0eaec; padding-top: 16px; }
-.admin-details summary { color: #238978; font-size: 12px; font-weight: 500; padding: 4px 0 14px; }
 .admin-system { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; padding: 10px 0; }
 .admin-system span,.admin-system strong { display: block; font-size: 12px; }
 .admin-system span { color: #829aa4; margin-bottom: 9px; }
@@ -262,7 +249,7 @@ progress::-moz-progress-bar { background: #08aa91; border-radius: 20px; }
     .panel-kicker { font-size: 7px; }
     .admin-panel-heading h2 { font-size: 14px; }
     .growth-summary>.chart-legend { display: none; }
-    .admin-role-grid,.admin-school-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .admin-role-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media(max-width:1000px) {
     .beheer-sidebar { width: 74px; padding: 23px 10px; align-items: center; }
@@ -323,7 +310,8 @@ progress::-moz-progress-bar { background: #08aa91; border-radius: 20px; }
     .admin-filters label:first-of-type { flex-basis: 100%; }
     .admin-panel-heading { flex-wrap: wrap; gap: 10px; }
     .admin-pagination { align-items: flex-start; flex-direction: column; }
-    .admin-role-grid,.admin-school-grid,.admin-form-grid,.admin-system { grid-template-columns: 1fr; }
+    .admin-role-grid,.admin-form-grid,.admin-system { grid-template-columns: 1fr; }
     .beheer-footer { padding: 15px 5px; font-size: 8px; }
 }
 @media(prefers-reduced-motion:reduce) { .beheer-body * { transition: none !important; scroll-behavior: auto !important; } }
+

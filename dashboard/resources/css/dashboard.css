@@ -266,11 +266,11 @@
     border-radius:10px;
     padding:18px
 }
-.admin-role-card h4,.admin-school-card h4 {
+.admin-role-card h4 {
     font-size:14px;
     margin:12px 0 8px
 }
-.admin-role-card p,.admin-school-card p {
+.admin-role-card p {
     color:#77869a;
     font-size:12px;
     line-height:1.6;
@@ -284,39 +284,6 @@
 .admin-role-symbol {
     font-size:22px;
     color:#6378cf
-}
-.admin-school-grid {
-    display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:14px
-}
-.admin-school-card {
-    display:flex;
-    align-items:flex-start;
-    gap:14px;
-    border:1px solid #e5ebf3;
-    border-radius:10px;
-    padding:16px
-}
-.admin-school-card h4 {
-    margin-top:0
-}
-.admin-school-card .stat-icon {
-    flex-shrink:0;
-    background:#f0f3ff;
-    color:#697bc5
-}
-.admin-details {
-    margin-top:20px;
-    border-top:1px solid #e9edf3;
-    padding-top:16px
-}
-.admin-details summary {
-    cursor:pointer;
-    color:#285ce6;
-    font-size:12px;
-    font-weight:600;
-    margin-bottom:14px
 }
 .admin-system {
     display:grid;
@@ -404,7 +371,7 @@
 }
 
 @media(max-width:1200px) {
-    .admin-role-grid,.admin-school-grid {
+    .admin-role-grid {
     grid-template-columns:repeat(2,minmax(0,1fr))
 }
 .admin-intro h2 {
@@ -427,7 +394,7 @@
     align-items:flex-start;
     flex-wrap:wrap
 }
-.admin-role-grid,.admin-school-grid,.admin-form-grid,.admin-system {
+.admin-role-grid,.admin-form-grid,.admin-system {
     grid-template-columns:1fr
 }
 .admin-pagination {
@@ -526,3 +493,4 @@
 .admin-body .metric-bottom { color:#7690a3; }
 .admin-body .metric-mint .metric-bottom img { filter:none; }
 .admin-body .panel { border-color:#d5e6f0; border-radius:9px; background:#fff; box-shadow:0 3px 10px #12364c08; }
+

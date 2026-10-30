@@ -51,8 +51,6 @@
                 @endforeach
                 {{-- Kies een rol uit de database. De huidige keuze blijft geselecteerd. --}}
                 <label>Rol *<select name="rol_idrol" required><option value="">Selecteer een rol</option>@foreach($roles as $role)<option value="{{ $role->idrol }}" @selected(old('rol_idrol', $member->rol_idrol) == $role->idrol)>{{ $role->naam }}</option>@endforeach</select></label>
-                {{-- Een school kiezen is niet verplicht. --}}
-                <label>School<select name="school_idschool"><option value="">Niet toegewezen</option>@foreach($schools as $school)<option value="{{ $school->idschool }}" @selected(old('school_idschool', $member->school_idschool) == $school->idschool)>{{ $school->naam }}</option>@endforeach</select></label>
                 {{-- Kies of het account actief of inactief is. --}}
                 <label>Status *<select name="status"><option value="actief" @selected(old('status', $member->status ?? 'actief') === 'actief')>Actief</option><option value="inactief" @selected(old('status', $member->status) === 'inactief')>Inactief</option></select></label>
             </div>

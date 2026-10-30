@@ -27,5 +27,4 @@ Route::middleware('auth')->prefix('beheer')->name('beheer.')->group(function () 
     Route::put('/gebruikers/{member}', [ApplicationAdminController::class, 'update'])->name('members.update');
     // DELETE vraagt om deze gebruiker te verwijderen. De controller controleert of dat mag.
     Route::delete('/gebruikers/{member}', [ApplicationAdminController::class, 'destroy'])->name('members.destroy');
-    Route::post('/scholen', [ApplicationAdminController::class, 'storeSchool'])->name('schools.store');
 });

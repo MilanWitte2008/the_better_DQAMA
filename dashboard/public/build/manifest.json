@@ -28,7 +28,7 @@
     "src": "_instrument-sans-600-normal-B9e8oLYv.woff"
   },
   "resources/css/admin-dashboard.css": {
-    "file": "assets/admin-dashboard-CVsT_DaF.css",
+    "file": "assets/admin-dashboard-D3TG7FVv.css",
     "name": "admin-dashboard",
     "names": [
       "admin-dashboard.css"
@@ -37,7 +37,7 @@
     "isEntry": true
   },
   "resources/css/app.css": {
-    "file": "assets/app-DEH26Owo.css",
+    "file": "assets/app-BAoHF4Vi.css",
     "name": "app",
     "names": [
       "app.css"
@@ -46,7 +46,7 @@
     "isEntry": true
   },
   "resources/css/dashboard.css": {
-    "file": "assets/dashboard-Bsd1LT8B.css",
+    "file": "assets/dashboard-iTuRFCHc.css",
     "name": "dashboard",
     "names": [
       "dashboard.css"
@@ -64,7 +64,7 @@
     "isEntry": true
   },
   "resources/js/admin-dashboard.js": {
-    "file": "assets/admin-dashboard-G3wDRnc1.js",
+    "file": "assets/admin-dashboard-BtmmMlmt.js",
     "name": "admin-dashboard",
     "src": "resources/js/admin-dashboard.js",
     "isEntry": true
