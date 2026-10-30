@@ -53,7 +53,6 @@ class DatabaseSeeder extends Seeder
                     'wachtwoord' => $password,
                     'status' => 'actief',
                     'aangemaakt_datum' => now(),
-                    'school_idschool' => null,
                 ],
             );
 

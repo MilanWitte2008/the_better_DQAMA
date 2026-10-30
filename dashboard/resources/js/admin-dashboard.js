@@ -12,9 +12,9 @@ function showSection() {
         return;
     }
     const requested = window.location.hash.slice(1);
-    const validSections = ['all', 'gebruikers', 'rollen', 'scholen', 'systeem'];
+    const validSections = ['all', 'gebruikers', 'rollen', 'systeem'];
     const filters = new URLSearchParams(window.location.search);
-    const hasFilters = ['q', 'role', 'school', 'status', 'page'].some(key => filters.get(key));
+    const hasFilters = ['q', 'role', 'status', 'page'].some(key => filters.get(key));
     const section = validSections.includes(requested) ? requested : (hasFilters ? 'gebruikers' : 'all');
     document.querySelectorAll('[data-dashboard-section]').forEach(element => {
         element.hidden = section === 'all'

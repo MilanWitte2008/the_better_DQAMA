@@ -20,12 +20,6 @@ class ApplicationAdminTest extends TestCase
             $table->string('naam', 50)->nullable();
             $table->text('beschrijving')->nullable();
         });
-        Schema::create('school', function (Blueprint $table) {
-            $table->increments('idschool');
-            $table->string('naam', 45)->nullable();
-            $table->string('adres', 45)->nullable();
-            $table->string('email', 45)->nullable();
-        });
         Schema::create('lid', function (Blueprint $table) {
             $table->increments('idlid');
             $table->string('voornaam', 50)->nullable();
@@ -35,15 +29,12 @@ class ApplicationAdminTest extends TestCase
             $table->string('status', 50)->nullable();
             $table->dateTime('aangemaakt_datum')->nullable();
             $table->unsignedInteger('rol_idrol')->nullable();
-            $table->unsignedInteger('school_idschool')->nullable();
             $table->foreign('rol_idrol')->references('idrol')->on('rol');
-            $table->foreign('school_idschool')->references('idschool')->on('school');
         });
         DB::table('rol')->insert([
             ['idrol' => 101, 'naam' => 'Student', 'beschrijving' => 'Volgt een opleiding'],
             ['idrol' => 103, 'naam' => 'Admin', 'beschrijving' => 'Beheert de applicatie'],
         ]);
-        DB::table('school')->insert(['idschool' => 101, 'naam' => 'Echte school', 'adres' => 'Schoolstraat 1']);
     }
 
     private function account(int $role = 103, string $status = 'actief'): User
@@ -52,7 +43,7 @@ class ApplicationAdminTest extends TestCase
         $user->forceFill([
             'voornaam' => 'Test', 'achternaam' => 'Beheerder',
             'email' => uniqid().'@example.com', 'wachtwoord' => Hash::make('veilig-wachtwoord'),
-            'status' => $status, 'rol_idrol' => $role, 'school_idschool' => 101,
+            'status' => $status, 'rol_idrol' => $role,
             'aangemaakt_datum' => now(),
         ])->save();
 
@@ -63,7 +54,7 @@ class ApplicationAdminTest extends TestCase
     {
         return array_replace([
             'voornaam' => 'Nieuwe', 'achternaam' => 'Gebruiker', 'email' => 'nieuw@example.com',
-            'rol_idrol' => 101, 'school_idschool' => 101, 'status' => 'actief',
+            'rol_idrol' => 101, 'status' => 'actief',
             'password' => 'een-veilig-wachtwoord', 'password_confirmation' => 'een-veilig-wachtwoord',
         ], $overrides);
     }
@@ -71,11 +62,11 @@ class ApplicationAdminTest extends TestCase
     public function test_admin_sees_database_records_and_can_filter(): void
     {
         $admin = $this->account();
-        $this->actingAs($admin)->get('/dashboard')->assertOk()->assertSee('Echte school')->assertSee($admin->email);
-        $this->get('/dashboard?q=Test%20Beheerder')->assertOk()->assertSee($admin->email);
-        $this->get('/dashboard?q=geen-resultaat')->assertOk()->assertSee('Geen gebruikers gevonden')->assertDontSee($admin->email);
-        $this->get('/dashboard?role=101')->assertOk()->assertSee('Geen gebruikers gevonden');
-        $this->get('/dashboard?status=onbekend')->assertSessionHasErrors('status');
+        $this->actingAs($admin)->get('/beheer/dashboard')->assertOk()->assertSee($admin->email);
+        $this->get('/beheer/dashboard?q=Test%20Beheerder')->assertOk()->assertSee($admin->email);
+        $this->get('/beheer/dashboard?q=geen-resultaat')->assertOk()->assertSee('Geen gebruikers gevonden')->assertDontSee($admin->email);
+        $this->get('/beheer/dashboard?role=101')->assertOk()->assertSee('Geen gebruikers gevonden');
+        $this->get('/beheer/dashboard?status=onbekend')->assertSessionHasErrors('status');
     }
 
     public function test_admin_can_create_and_edit_an_account_without_exposing_password(): void
@@ -97,8 +88,8 @@ class ApplicationAdminTest extends TestCase
     {
         $admin = $this->account();
         $this->actingAs($admin)->post('/beheer/gebruikers', $this->input([
-            'email' => $admin->email, 'rol_idrol' => 999, 'school_idschool' => 999, 'password_confirmation' => 'anders',
-        ]))->assertSessionHasErrors(['email', 'rol_idrol', 'school_idschool', 'password']);
+            'email' => $admin->email, 'rol_idrol' => 999, 'password_confirmation' => 'anders',
+        ]))->assertSessionHasErrors(['email', 'rol_idrol', 'password']);
         $this->assertSame(1, User::count());
     }
 
@@ -119,15 +110,7 @@ class ApplicationAdminTest extends TestCase
         $this->get('/beheer/gebruikers/'.$member->idlid.'/bewerken')->assertForbidden();
         $this->post('/beheer/gebruikers', $this->input())->assertForbidden();
         $this->put('/beheer/gebruikers/'.$member->idlid, $this->input())->assertForbidden();
-        $this->post('/beheer/scholen', ['naam' => 'Verboden'])->assertForbidden();
-        $this->actingAs($this->account(103, 'inactief'))->get('/dashboard')->assertForbidden();
-    }
-
-    public function test_school_creation_respects_existing_column_lengths(): void
-    {
-        $this->actingAs($this->account())->post('/beheer/scholen', ['naam' => 'Nieuwe school', 'email' => 'school@example.com'])->assertRedirect('/dashboard');
-        $this->assertDatabaseHas('school', ['naam' => 'Nieuwe school']);
-        $this->post('/beheer/scholen', ['naam' => str_repeat('x', 46)])->assertSessionHasErrors('naam');
+        $this->actingAs($this->account(103, 'inactief'))->followingRedirects()->get('/dashboard')->assertForbidden();
     }
 
     public function test_inactive_account_cannot_log_in(): void
@@ -146,7 +129,7 @@ class ApplicationAdminTest extends TestCase
         $this->account(101)->forceFill(['aangemaakt_datum' => '2021-01-01 00:00:00'])->save();
         $this->account(101)->forceFill(['aangemaakt_datum' => null, 'rol_idrol' => null])->save();
 
-        $response = $this->actingAs($admin)->get('/dashboard?year=2020&q=geen-resultaat');
+        $response = $this->actingAs($admin)->get('/beheer/dashboard?year=2020&q=geen-resultaat');
 
         $response->assertOk()->assertSee('Geen gebruikers gevonden');
         $analytics = $response->viewData('analytics');
@@ -166,12 +149,12 @@ class ApplicationAdminTest extends TestCase
         $admin = $this->account();
         $admin->forceFill(['aangemaakt_datum' => '2019-01-01 00:00:00'])->save();
 
-        $response = $this->actingAs($admin)->get('/dashboard?year=2020');
+        $response = $this->actingAs($admin)->get('/beheer/dashboard?year=2020');
 
         $response->assertOk();
         $this->assertSame(0, $response->viewData('analytics')['yearTotal']);
         $this->assertSame([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], $response->viewData('analytics')['monthly']);
-        $this->get('/dashboard?year=not-a-year')->assertSessionHasErrors('year');
+        $this->get('/beheer/dashboard?year=not-a-year')->assertSessionHasErrors('year');
     }
 
     public function test_guests_are_redirected_to_login(): void

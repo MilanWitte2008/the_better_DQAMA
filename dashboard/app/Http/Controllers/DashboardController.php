@@ -12,14 +12,14 @@ class DashboardController extends Controller
      */
     public function index(Request $request)
     {
-        // Haal de gebruiker en de rol op.
-        $user = Auth::user()->load('rol');
+        // Haal de ingelogde gebruiker en diens rol op.
+        $user = $request->user()->load('rol');
         $roleKey = $user->dashboardRoleKey();
 
-        // Stop met fout 403 als de rol onbekend is of het account niet actief is.
+        // Stop als het account inactief is of geen bekende rol heeft.
         abort_unless($roleKey && strtolower((string) $user->status) === 'actief', 403, 'Je account heeft geen geldige dashboardrol.');
 
-        // De beheerder krijgt een overzicht met gegevens uit de database.
+        // Het beheerdersoverzicht haalt zelf filters en statistieken op.
         if ($roleKey === 'beheerder') {
             return app(ApplicationAdminController::class)->index($request);
         }
@@ -29,7 +29,6 @@ class DashboardController extends Controller
             'student' => 'dashboards.student',
             'docent' => 'dashboards.docent',
             'teamleider' => 'dashboards.teammanager',
-            'beheerder' => 'dashboards.applicatiebeheerder',
         };
 
         // Stuur de gebruiker en de rol naar de pagina.
