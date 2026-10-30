@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -27,15 +29,20 @@ class AuthController extends Controller
         );
 
         if (! $passwordMatches || strtolower((string) $user?->status) !== 'actief') {
-        // Laravel zoekt de gebruiker en controleert het wachtwoord.
-        if (! Auth::attempt($data)) {
             // Geef een foutmelding en vul het e-mailadres alvast opnieuw in.
             return back()
                 ->with('login_error', 'Controleer je e-mailadres en wachtwoord en probeer het opnieuw.')
                 ->onlyInput('email');
         }
 
-        // Vernieuw de sessie nadat de gebruiker is ingelogd.
+        // Zet een oud wachtwoord om naar een hash na een geslaagde controle.
+        if (hash_equals($storedPassword, $data['password'])) {
+            $user->wachtwoord = Hash::make($data['password']);
+            $user->save();
+        }
+
+        // Log de actieve gebruiker in en vernieuw de sessie.
+        Auth::login($user);
         $request->session()->regenerate();
 
         // Stuur door naar de pagina die de gebruiker wilde openen, of anders naar het dashboard.
