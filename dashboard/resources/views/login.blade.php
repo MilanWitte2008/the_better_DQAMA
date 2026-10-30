@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0b2942">
     <title>Inloggen | DQAMA</title>
-    <?php echo app('Illuminate\Foundation\Vite')('resources/css/app.css'); ?>
+    @vite('resources/css/app.css')
 </head>
 <body class="login-body">
     <main class="login-shell">
         <section class="login-intro" aria-labelledby="welcome-title">
-            <a class="login-brand" href="/" aria-label="DQAMA startpagina">
+            <a class="login-brand" href="{{ route('home') }}" aria-label="DQAMA startpagina">
                 <span class="login-brand-mark" aria-hidden="true">D</span>
                 <span>
                     <strong>DQAMA</strong>
@@ -41,47 +41,40 @@
                 <h2 id="login-title">Log in op je account</h2>
                 <p class="login-subtitle">Vul je gegevens in om verder te gaan.</p>
 
-                <?php if(session('login_error') || $errors->any()): ?>
+                @if (session('login_error') || $errors->any())
                     <div class="login-error" role="alert">
                         <strong>Het e-mailadres of wachtwoord is verkeerd.</strong>
-                        <?php if(session('login_error')): ?>
-                            <span><?php echo e(session('login_error')); ?></span>
-                        <?php else: ?>
-                            <?php $__empty_1 = true; $__currentLoopData = $errors->all(); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $message): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
-                            <span><?php echo e($message); ?></span>
-                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                        @if (session('login_error'))
+                            <span>{{ session('login_error') }}</span>
+                        @else
+                            @forelse ($errors->all() as $message)
+                            <span>{{ $message }}</span>
+                            @empty
                                 <span>Controleer je e-mailadres en wachtwoord en probeer het opnieuw.</span>
-                            <?php endif; ?>
-                        <?php endif; ?>
+                            @endforelse
+                        @endif
                     </div>
-                <?php endif; ?>
+                @endif
 
-                <form method="POST" action="<?php echo e(url('/login')); ?>" class="login-form">
-                    <?php echo csrf_field(); ?>
+                <form method="POST" action="{{ route('login.attempt') }}" class="login-form">
+                    @csrf
 
                     <label for="email">E-mailadres</label>
                     <input
                         id="email"
                         name="email"
                         type="email"
-                        value="<?php echo e(old('email')); ?>"
+                        value="{{ old('email') }}"
                         placeholder="naam@school.nl"
                         autocomplete="username"
                         inputmode="email"
                         required
                         autofocus
-                        <?php if($errors->has('email')): ?> aria-describedby="email-error" <?php endif; ?>
+                        @if ($errors->has('email')) aria-describedby="email-error" @endif
                     >
-                    <?php $__errorArgs = ['email'];
-$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
-if ($__bag->has($__errorArgs[0])) :
-if (isset($message)) { $__messageOriginal = $message; }
-$message = $__bag->first($__errorArgs[0]); ?>
-                        <p id="email-error" class="field-error"><?php echo e($message); ?></p>
-                    <?php unset($message);
-if (isset($__messageOriginal)) { $message = $__messageOriginal; }
-endif;
-unset($__errorArgs, $__bag); ?>
+                    @error('email')
+                        <p id="email-error" class="field-error">{{ $message }}</p>
+                    @enderror
 
                     <div class="password-label-row">
                         <label for="password">Wachtwoord</label>
@@ -94,16 +87,9 @@ unset($__errorArgs, $__bag); ?>
                         autocomplete="current-password"
                         required
                     >
-                    <?php $__errorArgs = ['password'];
-$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
-if ($__bag->has($__errorArgs[0])) :
-if (isset($message)) { $__messageOriginal = $message; }
-$message = $__bag->first($__errorArgs[0]); ?>
-                        <p id="password-error" class="field-error"><?php echo e($message); ?></p>
-                    <?php unset($message);
-if (isset($__messageOriginal)) { $message = $__messageOriginal; }
-endif;
-unset($__errorArgs, $__bag); ?>
+                    @error('password')
+                        <p id="password-error" class="field-error">{{ $message }}</p>
+                    @enderror
 
                     <button class="login-submit" type="submit">
                         <span>Inloggen</span>
@@ -117,4 +103,3 @@ unset($__errorArgs, $__bag); ?>
     </main>
 </body>
 </html>
-<?php /**PATH C:\xampp\htdocs\the_better_DQAMA\dashboard\resources\views/home.blade.php ENDPATH**/ ?>

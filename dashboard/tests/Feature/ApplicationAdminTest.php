@@ -87,7 +87,7 @@ class ApplicationAdminTest extends TestCase
         $this->assertNotNull($member->aangemaakt_datum);
         $this->get('/beheer/gebruikers/'.$member->idlid.'/bewerken')->assertOk()->assertDontSee($member->wachtwoord);
         $hash = $member->wachtwoord;
-        $this->put('/beheer/gebruikers/'.$member->idlid, $this->input(['voornaam' => 'Gewijzigd', 'status' => 'inactief', 'password' => '', 'password_confirmation' => '']))->assertRedirect('/dashboard');
+        $this->put('/beheer/gebruikers/'.$member->idlid, $this->input(['voornaam' => 'Gewijzigd', 'status' => 'inactief', 'password' => '', 'password_confirmation' => '']))->assertRedirect('/dashboard#gebruikers');
         $this->assertSame('Gewijzigd', $member->fresh()->voornaam);
         $this->assertSame($hash, $member->fresh()->wachtwoord);
         $this->assertSame('inactief', $member->fresh()->status);
@@ -133,7 +133,7 @@ class ApplicationAdminTest extends TestCase
     public function test_inactive_account_cannot_log_in(): void
     {
         $user = $this->account(101, 'inactief');
-        $this->post('/login', ['email' => $user->email, 'password' => 'veilig-wachtwoord'])->assertSessionHasErrors('email');
+        $this->post('/login', ['email' => $user->email, 'password' => 'veilig-wachtwoord'])->assertSessionHas('login_error');
         $this->assertGuest();
     }
 
@@ -176,7 +176,7 @@ class ApplicationAdminTest extends TestCase
 
     public function test_guests_are_redirected_to_login(): void
     {
-        $this->get('/beheer/gebruikers/nieuw')->assertRedirect('/');
-        $this->post('/beheer/gebruikers', $this->input())->assertRedirect('/');
+        $this->get('/beheer/gebruikers/nieuw')->assertRedirect('/login');
+        $this->post('/beheer/gebruikers', $this->input())->assertRedirect('/login');
     }
 }
