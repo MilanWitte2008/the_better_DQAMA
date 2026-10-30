@@ -75,3 +75,4 @@
     <section class="panel" id="systeem" data-dashboard-section="systeem"><div class="admin-panel-heading"><div><h2>Omgevingsstatus</h2><p>Gecontroleerd tijdens het laden van deze pagina.</p></div><span class="admin-live">Database bereikbaar</span></div><div class="admin-system"><div><span>Database</span><strong>Verbinding geslaagd</strong></div><div><span>Laatste controle</span><strong>{{ now()->format('d-m-Y H:i') }}</strong></div><div><span>Accountbeheer</span><strong>Alleen actieve beheerders</strong></div></div></section>
 </div>
 @endsection
+ 

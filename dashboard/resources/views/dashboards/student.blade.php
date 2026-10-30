@@ -2,37 +2,57 @@
 @extends('components.layout-dashboard')
 
 @php
+    // ID van de ingelogde student.
     $memberId = $user->getKey();
+
+    // Het schooljaar begint in augustus.
     $schoolYearStart = now()->month >= 8 ? now()->year : now()->year - 1;
     $schoolYear = $schoolYearStart . '–' . ($schoolYearStart + 1);
     $db = \Illuminate\Support\Facades\DB::connection();
 
-    $goals = $db->table('doelen')
-        ->where('lid_idlid', $memberId)
-        ->orderByRaw("FIELD(status, 'Bezig', 'Te doen', 'Behaald')")
-        ->orderBy('einddatum')
+    // Haal de leeruitkomsten en hun persoonlijke status op.
+    $outcomes = $db->table('leeruitkomsten_has_lid as assignment')
+        ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
+        ->where('assignment.lid_idlid', $memberId)
+        ->orderByRaw("FIELD(assignment.status, 'Bezig', 'Te doen', 'Behaald')")
+        ->orderBy('outcome.titel')
+        ->select('outcome.titel', 'outcome.omschrijving', 'assignment.status')
         ->get();
 
+    // Haal de urenregistraties op, nieuwste eerst.
     $hours = $db->table('urenregistratie')
         ->where('lid_id', $memberId)
         ->orderByDesc('datum')
         ->get();
 
-    // Haal de fases op die aan deze student gekoppeld zijn.
-    $phases = $db->table('fase_has_lid as assignment')
-        ->join('fase', 'fase.idfase', '=', 'assignment.fase_idfase')
+    // Haal de fases van de student op.
+    $phaseColumn = $db->getSchemaBuilder()->hasColumn('leeruitkomsten', 'fase_idfase1') ? 'fase_idfase1' : 'fase_idfase';
+    $phases = $db->table('leeruitkomsten_has_lid as assignment')
+        ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
+        ->join('fase', 'fase.idfase', '=', "outcome.$phaseColumn")
         ->where('assignment.lid_idlid', $memberId)
-        ->select('fase.idfase', 'fase.naam', 'fase.beschrijving', 'fase.volgorde')
+        ->select('fase.idfase', 'fase.naam', 'fase.volgorde')
+        ->selectRaw('COUNT(*) AS outcome_count, SUM(CASE WHEN assignment.status = ? THEN 1 ELSE 0 END) AS completed_count', ['Behaald'])
+        ->groupBy('fase.idfase', 'fase.naam', 'fase.volgorde')
         ->orderBy('fase.volgorde')
-        ->get();
+        ->get()
+        ->map(function ($phase) {
+            $phase->progress = $phase->outcome_count > 0
+                ? (int) round(($phase->completed_count / $phase->outcome_count) * 100)
+                : 0;
 
+            return $phase;
+        });
+
+    // Haal de vijf nieuwste reflecties op.
     $reflections = $db->table('reflectie')
-        ->where('fase_has_lid_lid_idlid', $memberId)
+        ->where('lid_idlid', $memberId)
         ->orderByDesc('datum')
         ->orderByDesc('idreflectie')
         ->limit(5)
         ->get();
 
+    // Haal goedgekeurde uren van de laatste zes maanden op.
     $monthStart = now()->startOfMonth()->subMonths(5);
     $monthlyHours = $db->table('urenregistratie')
         ->where('lid_id', $memberId)
@@ -42,6 +62,7 @@
         ->groupByRaw("DATE_FORMAT(datum, '%Y-%m')")
         ->pluck('totaal', 'maand');
 
+    // Voeg ook maanden zonder uren toe aan de grafiek.
     $hoursByMonth = collect(range(0, 5))->map(function ($offset) use ($monthStart, $monthlyHours) {
         $month = $monthStart->copy()->addMonths($offset);
         $key = $month->format('Y-m');
@@ -52,6 +73,7 @@
         ];
     });
 
+    // Bereken de hoogte van elke maandbalk.
     $maxMonthHours = max(1, (float) $hoursByMonth->max('hours'));
     $hoursByMonth = $hoursByMonth->map(function (array $month) use ($maxMonthHours) {
         $month['percentage'] = $month['hours'] > 0
@@ -60,11 +82,12 @@
         return $month;
     });
 
+    // Bewaar de gegevens voor de pagina.
     $studentData = [
-        'goals' => $goals,
-        'totalGoals' => $goals->count(),
-        'activeGoals' => $goals->whereIn('status', ['Te doen', 'Bezig'])->count(),
-        'completedGoals' => $goals->where('status', 'Behaald')->count(),
+        'outcomes' => $outcomes,
+        'totalOutcomes' => $outcomes->count(),
+        'activeOutcomes' => $outcomes->whereIn('status', ['Te doen', 'Bezig'])->count(),
+        'completedOutcomes' => $outcomes->where('status', 'Behaald')->count(),
         'hours' => $hours,
         'totalHours' => (float) $hours->sum(fn ($entry) => (float) $entry->uren),
         'approvedHours' => (float) $hours->where('status', 'Goedgekeurd')->sum('uren'),
@@ -83,11 +106,11 @@
 @section('content')
     {{-- Persoonlijk overzicht in dezelfde dashboardindeling als de andere rollen. --}}
     <div class="section-heading" id="ontwikkeling" data-dashboard-section="ontwikkeling"><div><h2>Mijn ontwikkeling</h2><p>Bekijk je voortgang, leeruitkomsten en uren op één plek.</p></div><span class="period-pill">Schooljaar {{ $schoolYear }}</span></div>
-    {{-- Toon de belangrijkste cijfers van deze student. --}}
+    {{-- Toon de belangrijkste cijfers. --}}
     <section class="stat-grid" aria-label="Samenvatting" data-dashboard-section="ontwikkeling">
         <article class="stat-card stat-green">
             <div class="stat-icon">▣</div>
-            <div><span>Leerdoelen</span><strong>{{ $studentData['totalGoals'] }}</strong><small>Gekoppeld aan jouw fases</small></div>
+            <div><span>Leeruitkomsten</span><strong>{{ $studentData['totalOutcomes'] }}</strong><small>Gekoppeld aan jouw fases</small></div>
         </article>
         <article class="stat-card stat-blue">
             <div class="stat-icon">◷</div>
@@ -95,7 +118,7 @@
         </article>
         <article class="stat-card stat-orange">
             <div class="stat-icon">◎</div>
-            <div><span>Leerdoelen</span><strong>{{ $studentData['activeGoals'] }} actief</strong><small>{{ $studentData['completedGoals'] }} behaald</small></div>
+            <div><span>Leeruitkomsten</span><strong>{{ $studentData['activeOutcomes'] }} actief</strong><small>{{ $studentData['completedOutcomes'] }} behaald</small></div>
         </article>
         <article class="stat-card stat-purple">
             <div class="stat-icon">◉</div>
@@ -103,7 +126,7 @@
         </article>
     </section>
 
-    {{-- Toon de fases die aan de student gekoppeld zijn. --}}
+    {{-- Toon de fases van de student. --}}
     <section class="panel" data-dashboard-section="ontwikkeling">
         <h3>Mijn fases</h3>
         @if ($studentData['phases']->isNotEmpty())
@@ -111,8 +134,10 @@
                 @foreach ($studentData['phases'] as $phase)
                     @php($phaseStyle = ['phase-green', 'phase-blue', 'phase-orange'][$loop->index % 3])
                     <div class="phase {{ $phaseStyle }}">
+                        <div class="ring phase-ring" style="--progress: {{ $phase->progress }}%" role="img" aria-label="{{ $phase->progress }} procent van de leeruitkomsten behaald">
+                            <span aria-hidden="true">{{ $phase->progress }}%</span>
+                        </div>
                         <strong>{{ $phase->naam }}</strong>
-                        <small>{{ $phase->beschrijving ?: 'Fase ' . $phase->volgorde }}</small>
                     </div>
                 @endforeach
             </div>
@@ -121,28 +146,28 @@
         @endif
     </section>
 
-    {{-- Toon de persoonlijke doelen en recente reflecties. --}}
+    {{-- Toon leeruitkomsten en reflecties. --}}
     <div class="content-grid">
         <section class="panel" id="leerdoelen" data-dashboard-section="leerdoelen">
-            <h3>Mijn leerdoelen</h3>
-            @if ($studentData['goals']->isNotEmpty())
+            <h3>Mijn leeruitkomsten</h3>
+            @if ($studentData['outcomes']->isNotEmpty())
                 <div class="scroll-field">
                     <ul class="goal-list">
-                        @foreach ($studentData['goals'] as $goal)
+                        @foreach ($studentData['outcomes'] as $outcome)
                             <li>
                                 <span>
-                                    <strong>{{ $goal->titel ?: 'Leerdoel zonder titel' }}</strong>
-                                    @if ($goal->omschrijving)
-                                        <small class="widget-detail">{{ $goal->omschrijving }}</small>
+                                    <strong>{{ $outcome->titel ?: 'Leeruitkomst zonder titel' }}</strong>
+                                    @if ($outcome->omschrijving)
+                                        <small class="widget-detail">{{ $outcome->omschrijving }}</small>
                                     @endif
                                 </span>
-                                <span class="goal-tag">{{ $goal->status ?: 'Onbekend' }}</span>
+                                <span class="goal-tag">{{ $outcome->status ?: 'Onbekend' }}</span>
                             </li>
                         @endforeach
                     </ul>
                 </div>
             @else
-                <p class="info-strip">Er zijn nog geen leerdoelen aan jouw account gekoppeld.</p>
+                <p class="info-strip">Er zijn nog geen leeruitkomsten aan jouw account gekoppeld.</p>
             @endif
         </section>
 
@@ -164,7 +189,7 @@
             @endif
         </section>
 
-        {{-- Toon het aantal uren en de goedgekeurde uren per maand. --}}
+        {{-- Toon de uren per maand. --}}
         <section class="panel wide-panel" id="uren" data-dashboard-section="uren">
             <h3>Uren &amp; resultaten</h3>
             <div class="hours-total">{{ number_format($studentData['totalHours'], $studentData['totalHours'] == (int) $studentData['totalHours'] ? 0 : 1, ',', '.') }} <span>uur geregistreerd</span></div>
@@ -183,14 +208,14 @@
 
     </div>
 
-    {{-- Geef een volgende stap op basis van het eerste leerdoel. --}}
+    {{-- Toon de volgende stap voor de student. --}}
     <section class="next-step" id="gesprekken" data-dashboard-section="gesprekken">
         <strong>💡 Jouw volgende stap</strong>
-        @if ($studentData['goals']->isNotEmpty())
-            <p>Bekijk je leerdoelen en werk verder aan: {{ $studentData['goals']->first()->titel ?: 'je volgende leerdoel' }}.</p>
+        @if ($studentData['outcomes']->isNotEmpty())
+            <p>Bekijk je leeruitkomsten en werk verder aan: {{ $studentData['outcomes']->first()->titel ?: 'je volgende leeruitkomst' }}.</p>
         @else
-            <p>Zodra er leerdoelen aan jouw account gekoppeld zijn, verschijnen ze hier.</p>
+            <p>Zodra er leeruitkomsten aan jouw account gekoppeld zijn, verschijnen ze hier.</p>
         @endif
-        <a href="{{ route('dashboard') }}#leerdoelen" class="primary-button">Bekijk mijn leerdoelen →</a>
+        <a href="{{ route('dashboard') }}#leerdoelen" class="primary-button">Bekijk mijn leeruitkomsten →</a>
     </section>
 @endsection
