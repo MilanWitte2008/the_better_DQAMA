@@ -5,23 +5,27 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
-// Toon het bestaande inlogscherm op de startpagina.
-Route::get('/', fn () => view('home'))->name('login');
+// Iedereen mag de startpagina bekijken. Inloggen heeft een eigen webadres.
+Route::view('/', 'home')->name('home');
+Route::get('/login', fn () => auth()->check() ? redirect()->route('dashboard') : view('login'))->name('login');
 
-// Beperk loginpogingen om automatisch raden van wachtwoorden af te remmen.
+// Beperk het aantal pogingen om in te loggen. Dit helpt tegen het raden van wachtwoorden.
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10.1,1')->name('login.attempt');
 
-// Het dashboard kiest zelf de juiste pagina aan de hand van de rol.
+// Je moet ingelogd zijn. De controller kiest daarna de pagina voor jouw rol.
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
 // Afmelden is een POST-verzoek, zodat de sessie veilig wordt beëindigd.
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth');
 
-// Iedere beheeractie controleert de rol opnieuw op de server.
+// Deze adressen beginnen met /beheer. De controller controleert ook of je beheerder bent.
 Route::middleware('auth')->prefix('beheer')->name('beheer.')->group(function () {
-    Route::get('/dashboard', [ApplicationAdminController::class, 'index'])->name('dashboard');
+    // GET opent het formulier. POST slaat een nieuwe gebruiker op.
     Route::get('/gebruikers/nieuw', [ApplicationAdminController::class, 'create'])->name('members.create');
     Route::post('/gebruikers', [ApplicationAdminController::class, 'store'])->name('members.store');
     Route::get('/gebruikers/{member}/bewerken', [ApplicationAdminController::class, 'edit'])->name('members.edit');
+    // {member} is het nummer van de gebruiker. PUT slaat de wijzigingen op.
     Route::put('/gebruikers/{member}', [ApplicationAdminController::class, 'update'])->name('members.update');
+    // DELETE vraagt om deze gebruiker te verwijderen. De controller controleert of dat mag.
     Route::delete('/gebruikers/{member}', [ApplicationAdminController::class, 'destroy'])->name('members.destroy');
+    Route::post('/scholen', [ApplicationAdminController::class, 'storeSchool'])->name('schools.store');
 });

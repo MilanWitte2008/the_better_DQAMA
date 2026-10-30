@@ -3,39 +3,39 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    // Dit project gebruikt de bestaande tabel 'lid' in plaats van Laravel's 'users'.
+    // De gebruikers staan in de tabel 'lid'.
     protected $table = 'lid';
 
-    // Primaire sleutel zoals die in de bestaande database is genoemd.
+    // Elke gebruiker heeft een eigen nummer: idlid.
     protected $primaryKey = 'idlid';
 
-    // De tabel bevat geen Laravel-created_at en updated_at kolommen.
+    // Deze tabel heeft geen created_at en updated_at. Laravel vult die dus niet in.
     public $timestamps = false;
 
-    // Verberg het opgeslagen wachtwoord wanneer een gebruiker als JSON wordt weergegeven.
+    // Stuur het wachtwoord niet mee als we de gebruiker als JSON tonen.
     protected $hidden = ['wachtwoord'];
 
-    // Vertel Laravel Authentication welke kolom het wachtwoord bevat.
+    // Laravel vindt het opgeslagen wachtwoord in de kolom wachtwoord.
     public function getAuthPasswordName(): string
     {
         return 'wachtwoord';
     }
 
-    // Een lid hoort bij één rol via de foreign key rol_idrol.
+    // Elke gebruiker hoort bij een rol. rol_idrol verwijst naar het nummer van die rol.
     public function rol(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'rol_idrol', 'idrol');
     }
 
-    // Zet verschillende namen uit de database om naar vaste dashboardcodes.
+    // Kies het dashboard dat bij de rol hoort. Een onbekende rol krijgt geen dashboard.
     public function dashboardRoleKey(): ?string
     {
         return match (strtolower((string) $this->rol?->naam)) {
@@ -47,7 +47,7 @@ class User extends Authenticatable
         };
     }
 
-    // Zet datumvelden om naar datumobjecten zodat Laravel ze makkelijk kan formatteren.
+    // Lees dit veld als een datum. Zo kunnen we bijvoorbeeld dag, maand en jaar tonen.
     protected function casts(): array
     {
         return [

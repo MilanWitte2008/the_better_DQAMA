@@ -1,4 +1,4 @@
-{{-- Gedeelde Blade-layout: alle rolpagina's vullen de titel, welkomsttekst en inhoud in. --}}
+{{-- Dit is de basis voor de dashboards. Elke pagina geeft hier haar eigen inhoud aan. --}}
 @php
     $roleKey = $roleKey ?? auth()->user()->dashboardRoleKey();
 @endphp
@@ -8,6 +8,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Ontwikkelplatform')</title>
+    {{-- Laad de stijlbestanden. De beheerder krijgt ook eigen CSS en JavaScript. --}}
     @vite(($roleKey ?? auth()->user()?->dashboardRoleKey()) === 'beheerder'
         ? ['resources/css/app.css', 'resources/css/dashboard.css', 'resources/css/admin-dashboard.css', 'resources/js/admin-dashboard.js']
         : ['resources/css/app.css', 'resources/css/dashboard.css'])
@@ -24,7 +25,7 @@
         ];
         $currentRoleKey = $roleKey ?? 'student';
     @endphp
-    {{-- Hoofdomhulsel met vaste zijbalk en het centrale paginagedeelte. --}}
+    {{-- Links staat het menu. Daarnaast staat de inhoud van de pagina. --}}
     <div class="dashboard-shell">
         <aside class="sidebar">
             <a class="brand" href="{{ route('dashboard') }}">
@@ -35,7 +36,7 @@
                 <span class="avatar">{{ strtoupper(substr(auth()->user()->voornaam ?? 'A', 0, 1) . substr(auth()->user()->achternaam ?? 'V', 0, 1)) }}</span>
                 <span><strong>{{ auth()->user()->voornaam ?? 'Alex' }} {{ auth()->user()->achternaam ?? 'de Vries' }}</strong><small>{{ $roleLabels[$currentRoleKey] ?? 'Gebruiker' }}</small></span>
             </div>
-            {{-- Deze knoppen filteren de onderdelen binnen hetzelfde dashboard. --}}
+            {{-- Met dit menu kies je welk onderdeel je wilt zien. --}}
             <nav class="side-nav" aria-label="Hoofdnavigatie">
                 @foreach (($menuItems[$currentRoleKey] ?? $menuItems['student']) as [$icon, $label, $target])
                     @if($currentRoleKey === 'beheerder')
@@ -68,7 +69,7 @@
                 </div>
             </header>
 
-            {{-- Hier wordt de inhoud van het gekozen roldashboard geplaatst. --}}
+            {{-- Hier komt de inhoud van de gekozen dashboardpagina. --}}
             <main class="page-content">
                 @yield('content')
             </main>

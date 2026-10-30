@@ -13,21 +13,27 @@ use Illuminate\Validation\ValidationException;
 
 class ApplicationAdminController extends Controller
 {
+    // Alleen een ingelogde, actieve beheerder mag deze acties uitvoeren.
     private function authorizeAdmin(Request $request): void
     {
         abort_unless($request->user()?->dashboardRoleKey() === 'beheerder' && strtolower((string) $request->user()->status) === 'actief', 403);
     }
 
+    // Haal de gegevens op die we op het dashboard willen tonen.
     public function index(Request $request)
     {
         $this->authorizeAdmin($request);
+        // Controleer de zoektekst en de gekozen filters.
         $filters = $request->validate([
             'year' => ['nullable', 'integer', 'between:2000,'.now()->year],
             'q' => ['nullable', 'string', 'max:100'],
             'role' => ['nullable', 'integer', 'exists:rol,idrol'],
+            'school' => ['nullable', 'integer', 'exists:school,idschool'],
             'status' => ['nullable', Rule::in(['actief', 'inactief'])],
         ]);
-        $members = User::query()->with('rol')
+        // Zoek gebruikers met hun rol en school. Toon 12 gebruikers per pagina.
+        $members = User::query()->with('rol')->leftJoin('school', 'lid.school_idschool', '=', 'school.idschool')
+            ->select('lid.*', 'school.naam as school_naam')
             ->when($filters['q'] ?? null, function ($query, $search) {
                 foreach (preg_split('/\s+/u', trim($search), -1, PREG_SPLIT_NO_EMPTY) as $term) {
                     $query->where(function ($query) use ($term) {
@@ -38,11 +44,18 @@ class ApplicationAdminController extends Controller
                 }
             })
             ->when($filters['role'] ?? null, fn ($query, $role) => $query->where('rol_idrol', $role))
+            ->when($filters['school'] ?? null, fn ($query, $school) => $query->where('school_idschool', $school))
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->orderBy('achternaam')->orderBy('idlid')->paginate(12)->withQueryString();
+        // Tel hoeveel gebruikers elke rol en elke school heeft.
         $roles = Role::query()->withCount(['members as member_count'])->orderBy('naam')->get();
-        $stats = ['members' => User::count(), 'active' => User::where('status', 'actief')->count(), 'roles' => $roles->count()];
+        $schools = DB::table('school')->leftJoin('lid', 'school.idschool', '=', 'lid.school_idschool')
+            ->select('school.idschool', 'school.naam', 'school.adres', 'school.email')
+            ->selectRaw('COUNT(lid.idlid) as member_count')
+            ->groupBy('school.idschool', 'school.naam', 'school.adres', 'school.email')->orderBy('school.naam')->get();
+        $stats = ['members' => User::count(), 'active' => User::where('status', 'actief')->count(), 'roles' => $roles->count(), 'schools' => $schools->count()];
 
+        // Tel nieuwe accounts per maand in het gekozen jaar. Een lege maand krijgt 0.
         $year = (int) ($filters['year'] ?? now()->year);
         $monthlyCounts = User::query()
             ->where('aangemaakt_datum', '>=', $year.'-01-01 00:00:00')
@@ -64,9 +77,11 @@ class ApplicationAdminController extends Controller
             'roles' => $roleDistribution->all(),
         ];
 
-        return view('dashboards.applicatiebeheerder', compact('members', 'roles', 'stats', 'filters', 'analytics') + ['roleKey' => 'beheerder']);
+        // Geef de gegevens aan de pagina. Blade toont ze in de browser.
+        return view('dashboards.applicatiebeheerder', compact('members', 'roles', 'schools', 'stats', 'filters', 'analytics') + ['roleKey' => 'beheerder']);
     }
 
+    // Open een leeg formulier voor een nieuwe gebruiker.
     public function create(Request $request)
     {
         $this->authorizeAdmin($request);
@@ -74,6 +89,7 @@ class ApplicationAdminController extends Controller
         return $this->form(new User);
     }
 
+    // Open hetzelfde formulier met de gegevens van deze gebruiker.
     public function edit(Request $request, User $member)
     {
         $this->authorizeAdmin($request);
@@ -85,10 +101,11 @@ class ApplicationAdminController extends Controller
     {
         return view('dashboards.admin-member-form', [
             'member' => $member, 'roles' => Role::orderBy('naam')->get(),
-            'roleKey' => 'beheerder',
+            'schools' => DB::table('school')->orderBy('naam')->get(), 'roleKey' => 'beheerder',
         ]);
     }
 
+    // Sla een nieuwe gebruiker op en ga terug naar het dashboard.
     public function store(Request $request)
     {
         $this->authorizeAdmin($request);
@@ -98,6 +115,7 @@ class ApplicationAdminController extends Controller
         return redirect()->route('dashboard')->with('success', 'Gebruiker toegevoegd.');
     }
 
+    // Sla wijzigingen op en ga terug naar de lijst met gebruikers.
     public function update(Request $request, User $member)
     {
         $this->authorizeAdmin($request);
@@ -106,6 +124,7 @@ class ApplicationAdminController extends Controller
         return redirect()->to(route('dashboard').'#gebruikers')->with('success', 'Gebruiker bijgewerkt.');
     }
 
+    // Verwijder een gebruiker. Het eigen account mag niet weg.
     public function destroy(Request $request, User $member)
     {
         $this->authorizeAdmin($request);
@@ -115,6 +134,7 @@ class ApplicationAdminController extends Controller
                 ->withErrors(['member' => 'Je kunt je eigen account niet verwijderen.']);
         }
 
+        // Stop als deze gebruiker nog een student- of coachprofiel heeft.
         foreach (['student', 'coach'] as $profileTable) {
             if (Schema::hasTable($profileTable) && DB::table($profileTable)->where('lid_idlid', $member->getKey())->exists()) {
                 return redirect()->to(route('dashboard').'#gebruikers')
@@ -127,6 +147,7 @@ class ApplicationAdminController extends Controller
         return redirect()->to(route('dashboard').'#gebruikers')->with('success', 'Gebruiker verwijderd.');
     }
 
+    // Gebruik deze controles bij toevoegen en bij aanpassen.
     private function saveMember(Request $request, User $member): void
     {
         $data = $request->validate([
@@ -134,17 +155,21 @@ class ApplicationAdminController extends Controller
             'achternaam' => ['required', 'string', 'max:50'],
             'email' => ['required', 'email', 'max:100', Rule::unique('lid', 'email')->ignore($member->getKey(), 'idlid')],
             'rol_idrol' => ['required', 'integer', 'exists:rol,idrol'],
+            'school_idschool' => ['nullable', 'integer', 'exists:school,idschool'],
             'status' => ['required', Rule::in(['actief', 'inactief'])],
             'password' => [$member->exists ? 'nullable' : 'required', 'string', 'min:12', 'max:128', 'confirmed'],
         ]);
+        // De beheerder mag de eigen rol niet veranderen of het eigen account uitzetten.
         if ($member->exists && $member->is($request->user())) {
             if ((int) $data['rol_idrol'] !== (int) $member->rol_idrol || $data['status'] !== 'actief') {
                 throw ValidationException::withMessages(['status' => 'Je kunt je eigen rol of actieve status niet wijzigen.']);
             }
         }
-        foreach (['voornaam', 'achternaam', 'email', 'rol_idrol', 'status'] as $field) {
+        foreach (['voornaam', 'achternaam', 'email', 'rol_idrol', 'school_idschool', 'status'] as $field) {
             $member->{$field} = $data[$field] ?? null;
         }
+        // Maak een hash van een nieuw wachtwoord. Bewaar nooit de gewone tekst.
+        // Is het veld bij bewerken leeg? Dan blijft het oude wachtwoord staan.
         if (! empty($data['password'])) {
             $member->wachtwoord = Hash::make($data['password']);
         }
@@ -154,4 +179,17 @@ class ApplicationAdminController extends Controller
         $member->save();
     }
 
+    // Controleer de schoolgegevens en voeg de school toe aan de database.
+    public function storeSchool(Request $request)
+    {
+        $this->authorizeAdmin($request);
+        $data = $request->validate([
+            'naam' => ['required', 'string', 'max:45'],
+            'adres' => ['nullable', 'string', 'max:45'],
+            'email' => ['nullable', 'email', 'max:45'],
+        ]);
+        DB::table('school')->insert($data);
+
+        return redirect()->route('dashboard')->with('success', 'School toegevoegd.');
+    }
 }

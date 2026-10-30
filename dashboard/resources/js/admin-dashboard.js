@@ -1,6 +1,8 @@
 const dashboard = document.querySelector('[data-admin-dashboard]');
 const navLinks = [...document.querySelectorAll('[data-admin-target]')];
 
+// Lees de keuze in het webadres, zoals #gebruikers. Toon het juiste onderdeel.
+// Dit verandert alleen de weergave. PHP controleert of iemand toegang heeft.
 function showSection() {
     if (!dashboard) {
         navLinks.forEach(link => {
@@ -32,6 +34,7 @@ window.addEventListener('hashchange', () => {
     if (dashboard) window.scrollTo({ top: 0, behavior: 'instant' });
 });
 
+// Lees de cijfers die PHP in de pagina heeft gezet.
 const dataElement = document.getElementById('admin-chart-data');
 if (dataElement) {
     const analytics = JSON.parse(dataElement.textContent);
@@ -43,6 +46,7 @@ if (dataElement) {
     let highlighted = -1;
     let chartBounds;
 
+    // Maak het tekenvlak passend bij het scherm, zodat de grafiek scherp blijft.
     function prepare(canvas) {
         const box = canvas.getBoundingClientRect();
         if (box.width < 1 || box.height < 1) return null;
@@ -56,6 +60,7 @@ if (dataElement) {
         return { ctx, width: box.width, height: box.height };
     }
 
+    // Teken voor elke maand het aantal nieuwe accounts.
     function drawRegistrations() {
         const drawing = prepare(chart);
         if (!drawing) return;
@@ -131,6 +136,7 @@ if (dataElement) {
         });
     }
 
+    // Teken een cirkel. Elk gekleurd deel laat een rol zien.
     function drawRoles() {
         const drawing = prepare(donut);
         if (!drawing) return;
@@ -160,6 +166,7 @@ if (dataElement) {
             angle += extent;
         });
     }
+    // Toon de maand en het aantal als de muis over de grafiek gaat.
     chart.addEventListener('pointermove', event => {
         if (!chartBounds) return;
         const { margin, step } = chartBounds;
@@ -178,6 +185,7 @@ if (dataElement) {
         tooltip.hidden = true;
         drawRegistrations();
     });
+    // Teken opnieuw als de ruimte voor de grafiek groter of kleiner wordt.
     const observer = new ResizeObserver(() => { drawRegistrations(); drawRoles(); });
     observer.observe(chart.parentElement);
     observer.observe(donut.parentElement);

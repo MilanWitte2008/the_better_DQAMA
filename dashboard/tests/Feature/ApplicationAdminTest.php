@@ -159,7 +159,7 @@ class ApplicationAdminTest extends TestCase
 
     public function test_guests_are_redirected_to_login(): void
     {
-        $this->get('/beheer/gebruikers/nieuw')->assertRedirect('/');
-        $this->post('/beheer/gebruikers', $this->input())->assertRedirect('/');
+        $this->get('/beheer/gebruikers/nieuw')->assertRedirect('/login');
+        $this->post('/beheer/gebruikers', $this->input())->assertRedirect('/login');
     }
 }
