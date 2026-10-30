@@ -65,7 +65,7 @@
                         name="email"
                         type="email"
                         value="{{ old('email') }}"
-                        placeholder="naam@school.nl"
+                        placeholder="naam@voorbeeld.nl"
                         autocomplete="username"
                         inputmode="email"
                         required

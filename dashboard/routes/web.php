@@ -18,10 +18,10 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth');
 
 // Iedere beheeractie controleert de rol opnieuw op de server.
 Route::middleware('auth')->prefix('beheer')->name('beheer.')->group(function () {
+    Route::get('/dashboard', [ApplicationAdminController::class, 'index'])->name('dashboard');
     Route::get('/gebruikers/nieuw', [ApplicationAdminController::class, 'create'])->name('members.create');
     Route::post('/gebruikers', [ApplicationAdminController::class, 'store'])->name('members.store');
     Route::get('/gebruikers/{member}/bewerken', [ApplicationAdminController::class, 'edit'])->name('members.edit');
     Route::put('/gebruikers/{member}', [ApplicationAdminController::class, 'update'])->name('members.update');
     Route::delete('/gebruikers/{member}', [ApplicationAdminController::class, 'destroy'])->name('members.destroy');
-    Route::post('/scholen', [ApplicationAdminController::class, 'storeSchool'])->name('schools.store');
 });

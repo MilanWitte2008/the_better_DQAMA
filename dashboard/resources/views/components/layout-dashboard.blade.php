@@ -17,9 +17,9 @@
     @php
         $roleLabels = ['student' => 'Student · ICT', 'docent' => 'Docent', 'beheerder' => 'Applicatiebeheerder', 'teamleider' => 'Teamleider'];
         $menuItems = [
-            'student' => [['⌂', 'Dashboard', 'all'], ['◉', 'Mijn ontwikkeling', 'ontwikkeling'], ['◷', 'Uren & resultaten', 'uren'], ['◇', 'Mijn leerdoelen', 'leerdoelen'], ['▤', 'Reflecties', 'reflecties'], ['↔', 'Vergelijken', 'vergelijken'], ['☷', 'Gesprekken', 'gesprekken']],
+            'student' => [['⌂', 'Dashboard', 'all'], ['◉', 'Mijn ontwikkeling', 'ontwikkeling'], ['◷', 'Uren & resultaten', 'uren'], ['◇', 'Mijn leerdoelen', 'leerdoelen'], ['▤', 'Reflecties', 'reflecties'], ['☷', 'Gesprekken', 'gesprekken']],
             'docent' => [['⌂', 'Dashboard', 'all'], ['♙', 'Studenten', 'studenten'], ['☷', 'Coachgesprekken', 'gesprekken'], ['▤', 'Notities', 'notities'], ['▥', 'Rapportages', 'rapportages']],
-            'beheerder' => [['⌂', 'Dashboard', 'all'], ['♙', 'Gebruikers', 'gebruikers'], ['⚿', 'Rollen & rechten', 'rollen'], ['▦', 'Scholen', 'scholen'], ['⚙', 'Systeemstatus', 'systeem']],
+            'beheerder' => [['⌂', 'Dashboard', 'all'], ['♙', 'Gebruikers', 'gebruikers'], ['⚿', 'Rollen & rechten', 'rollen'], ['⚙', 'Systeemstatus', 'systeem']],
             'teamleider' => [['⌂', 'Dashboard', 'all'], ['♙', 'Studenten & groepen', 'groepen'], ['▥', 'Rapportages', 'rapportages'], ['↗', 'Trends', 'trends'], ['⚙', 'Instellingen', 'instellingen']],
         ];
         $currentRoleKey = $roleKey ?? 'student';

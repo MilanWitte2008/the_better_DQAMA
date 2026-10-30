@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -27,13 +28,14 @@ class AuthController extends Controller
         );
 
         if (! $passwordMatches || strtolower((string) $user?->status) !== 'actief') {
-        // Laravel zoekt de gebruiker en controleert het wachtwoord.
-        if (! Auth::attempt($data)) {
             // Geef een foutmelding en vul het e-mailadres alvast opnieuw in.
             return back()
                 ->with('login_error', 'Controleer je e-mailadres en wachtwoord en probeer het opnieuw.')
                 ->onlyInput('email');
         }
+
+        // Meld de gevonden gebruiker aan na het controleren van het wachtwoord.
+        Auth::login($user);
 
         // Vernieuw de sessie nadat de gebruiker is ingelogd.
         $request->session()->regenerate();

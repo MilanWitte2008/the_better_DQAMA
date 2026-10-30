@@ -74,7 +74,7 @@
 .admin-button:hover { transform: translateY(-1px); box-shadow: 0 5px 18px #063b4f20; background: #0b4c8a; }
 .admin-button.button-light img { filter: brightness(0) invert(1); }
 .admin-button.button-light { color: #fff; background: #115c9f; box-shadow: 0 5px 15px #13559225; }
-.metric-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 17px; margin-bottom: 23px; }
+.metric-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 17px; margin-bottom: 23px; }
 .metric-card { position: relative; min-width: 0; border-radius: 19px; padding: 20px; color: #fff; box-shadow: 0 6px 18px #204c7910; border: 1px solid #fff; overflow: hidden; }
 .metric-mint { background: linear-gradient(120deg,#1167b0,#194b89); color: #fff; border-color: #2876b8; }
 .metric-teal { background: linear-gradient(135deg,#fff,#edf5fd); color: #204b76; }
