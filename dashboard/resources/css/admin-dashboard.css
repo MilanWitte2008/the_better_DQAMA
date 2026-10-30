@@ -1,4 +1,5 @@
-/* ITIG administration — blue workspace with clear analytics surfaces. */
+/* Deze CSS bepaalt de kleuren, tabellen, kaarten en formulieren van de beheerpagina. */
+/* Blauw is de hoofdkleur van de beheerpagina. */
 .beheer-body {
     --ink: #183c63;
     --muted: #70869f;

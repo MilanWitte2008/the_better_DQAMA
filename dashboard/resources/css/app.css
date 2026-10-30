@@ -1,4 +1,4 @@
-/* Basisstijl en Tailwind-bronbestanden voor de applicatie. */
+﻿/* Basisstijl en Tailwind-bronbestanden voor de applicatie. */
 @import 'tailwindcss';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
