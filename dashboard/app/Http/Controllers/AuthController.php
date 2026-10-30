@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -34,10 +35,14 @@ class AuthController extends Controller
                 ->onlyInput('email');
         }
 
-        // Meld de gevonden gebruiker aan na het controleren van het wachtwoord.
-        Auth::login($user);
+        // Zet een oud wachtwoord om naar een hash na een geslaagde controle.
+        if (hash_equals($storedPassword, $data['password'])) {
+            $user->wachtwoord = Hash::make($data['password']);
+            $user->save();
+        }
 
-        // Vernieuw de sessie nadat de gebruiker is ingelogd.
+        // Log de actieve gebruiker in en vernieuw de sessie.
+        Auth::login($user);
         $request->session()->regenerate();
 
         // Stuur door naar de pagina die de gebruiker wilde openen, of anders naar het dashboard.
