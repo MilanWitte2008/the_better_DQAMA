@@ -168,6 +168,27 @@ class ApplicationAdminController extends Controller
             $member->aangemaakt_datum = now();
         }
         $member->save();
+
+        // Koppel alle leeruitkomsten aan leden met de rol Student.
+        if (Schema::hasTable('leeruitkomsten_has_lid') && Schema::hasTable('leeruitkomsten')) {
+            $isStudent = strtolower((string) Role::whereKey($member->rol_idrol)->value('naam')) === 'student';
+
+            if ($isStudent) {
+                $assignments = DB::table('leeruitkomsten')
+                    ->select('leeruitkomsten_id')
+                    ->get()
+                    ->map(fn ($outcome) => [
+                        'leeruitkomsten_id' => $outcome->leeruitkomsten_id,
+                        'lid_idlid' => $member->getKey(),
+                        'status' => 'Te doen',
+                    ])
+                    ->all();
+
+                if ($assignments !== []) {
+                    DB::table('leeruitkomsten_has_lid')->insertOrIgnore($assignments);
+                }
+            }
+        }
     }
 
 }
