@@ -25,7 +25,7 @@
 .stat-card{box-shadow:0 4px 14px rgba(15,54,78,.06)}
 .scroll-field{max-height:460px;overflow-y:auto;padding:0 14px;border:1px solid #d5e6f0;border-radius:8px;background:#fff;scrollbar-gutter:stable;overscroll-behavior:contain}
 .scroll-field .goal-list,.scroll-field .updates-list{margin:0}
-.goal-list li.goal-item{padding:0;border-bottom:1px solid #e7eff4}
+.goal-list li.goal-item{display:block;padding:0;border-bottom:1px solid #e7eff4}
 .goal-list li.goal-item:before{content:none}
 .goal-trigger{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:13px 0;border:0;background:transparent;color:#315d7c;text-align:left;font:inherit;cursor:pointer}
 .goal-trigger:hover .goal-copy strong,.goal-trigger:focus-visible .goal-copy strong{text-decoration:underline;color:#08775e}

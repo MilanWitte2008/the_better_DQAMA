@@ -144,6 +144,7 @@
 @section('welcome-subtitle', 'Je totale voortgang is ' . $progressPercent . '%. Hier zie je jouw ontwikkeling, leerdoelen en uren.')
 
 @section('content')
+    {{-- Toon de belangrijkste gegevens over de ontwikkeling van de student. --}}
     <div class="section-heading" id="ontwikkeling" data-dashboard-section="ontwikkeling">
         <div>
             <h2>Mijn ontwikkeling</h2>
@@ -171,6 +172,7 @@
         </article>
     </section>
 
+    {{-- Laat per fase zien hoeveel leeruitkomsten zijn behaald. --}}
     <section class="panel" data-dashboard-section="ontwikkeling">
         <h3>Mijn fases</h3>
         @if ($studentData['phases']->isNotEmpty())
@@ -192,32 +194,6 @@
         @endif
     </section>
 
-    <div class="content-grid">
-        <section class="panel" id="reflecties" data-dashboard-section="reflecties">
-            <h3>Reflecties</h3>
-            @if ($studentData['reflections']->isNotEmpty())
-                <ul class="updates-list">
-                    @foreach ($studentData['reflections'] as $reflection)
-                        <li>
-                            @if ($reflection->datum)
-                                <time>{{ \Illuminate\Support\Carbon::parse($reflection->datum)->format('d-m-Y') }}</time>
-                            @endif
-                            {{ $reflection->inhoud ?: 'Reflectie zonder inhoud' }}
-                        </li>
-                    @endforeach
-                </ul>
-            @else
-                <p class="info-strip">Je hebt nog geen reflecties opgeslagen.</p>
-            @endif
-            <form class="simple-form student-entry-form" method="POST" action="{{ route('student.reflections.store') }}">
-                @csrf
-                <label for="reflection-content">Nieuwe reflectie</label>
-                <textarea id="reflection-content" name="inhoud" rows="4" maxlength="5000" required placeholder="Wat heb je geleerd en wat wil je verder ontwikkelen?">{{ old('inhoud') }}</textarea>
-                @error('inhoud')<small class="form-error">{{ $message }}</small>@enderror
-                <button class="primary-button" type="submit">Reflectie bewaren</button>
-            </form>
-        </section>
-
         <section class="panel wide-panel" id="uren" data-dashboard-section="uren">
             <h3>Uren &amp; resultaten</h3>
             <div class="hours-total">{{ number_format($studentData['totalHours'], $studentData['totalHours'] == (int) $studentData['totalHours'] ? 0 : 1, ',', '.') }} <span>uur geregistreerd</span></div>
@@ -233,8 +209,8 @@
                 <p class="info-strip">Er zijn nog geen uren aan jouw account gekoppeld.</p>
             @endif
         </section>
-    </div>
 
+    {{-- Toon persoonlijke leerdoelen en de gekoppelde leeruitkomsten. --}}
     <div class="content-grid">
         <section class="panel" id="leerdoelen" data-dashboard-section="leerdoelen">
             <h3>Mijn leerdoelen</h3>
@@ -263,14 +239,24 @@
                 <div class="scroll-field">
                     <ul class="goal-list">
                         @foreach ($studentData['outcomes'] as $outcome)
-                            <li>
-                                <span>
-                                    <strong>{{ $outcome->titel ?: 'Leeruitkomst zonder titel' }}</strong>
-                                    @if ($outcome->omschrijving)
-                                        <small class="widget-detail">{{ $outcome->omschrijving }}</small>
-                                    @endif
-                                </span>
-                                <span class="goal-tag">{{ $outcome->status ?: 'Onbekend' }}</span>
+                            <li class="goal-item">
+                                <button
+                                    class="goal-trigger"
+                                    type="button"
+                                    data-outcome-title="{{ $outcome->titel ?: 'Leeruitkomst zonder titel' }}"
+                                    data-outcome-status="{{ $outcome->status ?: 'Onbekend' }}"
+                                    data-outcome-description="{{ $outcome->omschrijving ?? '' }}"
+                                    aria-haspopup="dialog"
+                                    aria-controls="outcome-dialog"
+                                >
+                                    <span class="goal-copy">
+                                        <strong>{{ $outcome->titel ?: 'Leeruitkomst zonder titel' }}</strong>
+                                    </span>
+                                    <span class="goal-tag">{{ $outcome->status ?: 'Onbekend' }}</span>
+                                </button>
+                                @if ($outcome->omschrijving)
+                                    <small class="widget-detail">{{ $outcome->omschrijving }}</small>
+                                @endif
                             </li>
                         @endforeach
                     </ul>
@@ -281,6 +267,42 @@
         </section>
     </div>
 
+    <dialog class="outcome-dialog" id="outcome-dialog" aria-labelledby="outcome-dialog-title">
+        <div class="outcome-dialog-header">
+            <h2 id="outcome-dialog-title"></h2>
+            <button class="outcome-dialog-close" type="button" aria-label="Sluiten" data-outcome-dialog-close>&times;</button>
+        </div>
+        <p class="outcome-dialog-status" id="outcome-dialog-status"></p>
+        <p class="outcome-dialog-description" id="outcome-dialog-description"></p>
+    </dialog>
+
+    <script>
+        const outcomeDialog = document.getElementById('outcome-dialog');
+        const outcomeDialogTitle = document.getElementById('outcome-dialog-title');
+        const outcomeDialogStatus = document.getElementById('outcome-dialog-status');
+        const outcomeDialogDescription = document.getElementById('outcome-dialog-description');
+
+        document.querySelectorAll('.goal-trigger').forEach((trigger) => {
+            trigger.addEventListener('click', () => {
+                outcomeDialogTitle.textContent = trigger.dataset.outcomeTitle;
+                outcomeDialogStatus.textContent = trigger.dataset.outcomeStatus;
+                outcomeDialogDescription.textContent = trigger.dataset.outcomeDescription || 'Geen omschrijving beschikbaar.';
+                outcomeDialog.showModal();
+            });
+        });
+
+        document.querySelector('[data-outcome-dialog-close]').addEventListener('click', () => {
+            outcomeDialog.close();
+        });
+
+        outcomeDialog.addEventListener('click', (event) => {
+            if (event.target === outcomeDialog) {
+                outcomeDialog.close();
+            }
+        });
+    </script>
+
+    {{-- Toon coachgesprekken die aan de student gekoppeld zijn. --}}
     <section class="panel" id="gesprekken" data-dashboard-section="gesprekken">
         <h3>Coachgesprekken</h3>
         @if ($studentData['conversations']->isNotEmpty())
@@ -298,4 +320,33 @@
             <p class="info-strip">Er zijn nog geen coachgesprekken aan jouw account gekoppeld.</p>
         @endif
     </section>
+        {{-- Toon recente reflecties en de urenregistratie van de afgelopen maanden. --}}
+    <div class="content-grid">
+        <section class="panel" id="reflecties" data-dashboard-section="reflecties">
+            <h3>Reflecties</h3>
+            @if ($studentData['reflections']->isNotEmpty())
+                <ul class="updates-list">
+                    @foreach ($studentData['reflections'] as $reflection)
+                        <li>
+                            @if ($reflection->datum)
+                                <time>{{ \Illuminate\Support\Carbon::parse($reflection->datum)->format('d-m-Y') }}</time>
+                            @endif
+                            {{ $reflection->inhoud ?: 'Reflectie zonder inhoud' }}
+                        </li>
+                    @endforeach
+                </ul>
+            @else
+                <p class="info-strip">Je hebt nog geen reflecties opgeslagen.</p>
+            @endif
+            <form class="simple-form student-entry-form" method="POST" action="{{ route('student.reflections.store') }}">
+                @csrf
+                <label for="reflection-content">Nieuwe reflectie</label>
+                <textarea id="reflection-content" name="inhoud" rows="4" maxlength="5000" required placeholder="Wat heb je geleerd en wat wil je verder ontwikkelen?">{{ old('inhoud') }}</textarea>
+                @error('inhoud')<small class="form-error">{{ $message }}</small>@enderror
+                <button class="primary-button" type="submit">Reflectie bewaren</button>
+            </form>
+        </section>
+
+
+    </div>
 @endsection
