@@ -10,17 +10,17 @@
         ['icon' => 'users', 'number' => '03', 'title' => 'Samen kom je verder.', 'text' => 'Studenten, coaches en teamleiders kijken ieder vanuit hun eigen rol naar ontwikkeling.', 'class' => 'feature-together'],
     ];
     $roles = [
-        ['id' => 'student', 'label' => 'Studenten', 'icon' => 'school', 'eyebrow' => 'JOUW ROUTE, JOUW GROEI', 'title' => 'Neem de regie over je ontwikkeling.', 'text' => 'Zie waar je naartoe werkt. Je persoonlijke werkruimte brengt leerdoelen, reflecties en resultaten samen.', 'points' => ['Je leerdoelen overzichtelijk bij elkaar', 'Inzicht in leeruitkomsten en voortgang', 'Ruimte voor reflectie en coachgesprekken'], 'preview' => 'Mijn ontwikkeling', 'metric' => '18 / 24', 'metricLabel' => 'leeruitkomsten behaald', 'rows' => [['Samenwerken', 'Behaald'], ['Professioneel handelen', 'In ontwikkeling'], ['Reflecteren', 'Volgende stap']]],
+        ['id' => 'student', 'label' => 'Studenten', 'icon' => 'users', 'eyebrow' => 'JOUW ROUTE, JOUW GROEI', 'title' => 'Neem de regie over je ontwikkeling.', 'text' => 'Zie waar je naartoe werkt. Je persoonlijke werkruimte brengt leerdoelen, reflecties en resultaten samen.', 'points' => ['Je leerdoelen overzichtelijk bij elkaar', 'Inzicht in leeruitkomsten en voortgang', 'Ruimte voor reflectie en coachgesprekken'], 'preview' => 'Mijn ontwikkeling', 'metric' => '18 / 24', 'metricLabel' => 'leeruitkomsten behaald', 'rows' => [['Samenwerken', 'Behaald'], ['Professioneel handelen', 'In ontwikkeling'], ['Reflecteren', 'Volgende stap']]],
         ['id' => 'coach', 'label' => 'Coaches', 'icon' => 'users', 'eyebrow' => 'AANDACHT WAAR HET TELT', 'title' => 'Houd het gesprek over groei centraal.', 'text' => 'Een eigen overzicht voor begeleiding. Bekijk studenten en neem hun ontwikkeling mee in je volgende gesprek.', 'points' => ['Een overzicht van studenten', 'Coachgesprekken en notities bij elkaar', 'Voortgang als startpunt voor begeleiding'], 'preview' => 'Mijn begeleiding', 'metric' => '3', 'metricLabel' => 'onderwerpen voor je volgende gesprek', 'rows' => [['Leerdoelen bespreken', 'Voorbereiden'], ['Voortgang bekijken', 'Inzicht'], ['Afspraken vastleggen', 'Vervolg']]],
         ['id' => 'teamleider', 'label' => 'Teamleiders', 'icon' => 'building-community', 'eyebrow' => 'ZICHT OP HET GEHEEL', 'title' => 'Verbind individuele groei met je team.', 'text' => 'Breng studenten en groepen in beeld. Je teamoverzicht geeft de ontwikkeling een gezamenlijke context.', 'points' => ['Studenten en groepen in één overzicht', 'Aandacht voor rapportages en trends', 'Een eigen dashboard voor jouw rol'], 'preview' => 'Mijn teamoverzicht', 'metric' => '4', 'metricLabel' => 'groepen in dit voorbeeld', 'rows' => [['ICT 1A', 'Overzicht'], ['ICT 1B', 'Overzicht'], ['ICT 2A', 'Overzicht']]],
-        ['id' => 'beheerder', 'label' => 'Beheerders', 'icon' => 'shield-check', 'eyebrow' => 'EEN GOEDE BASIS VOOR IEDEREEN', 'title' => 'Regel de toegang. Bewaar het overzicht.', 'text' => 'Beheer accounts, wijs rollen en scholen toe en bekijk de actuele verdeling van je gebruikers.', 'points' => ['Gebruikers aanmaken, zoeken en bewerken', 'Rollen, accountstatus en scholen beheren', 'Statistieken uit de bestaande database'], 'preview' => 'Applicatiebeheer', 'metric' => '4', 'metricLabel' => 'rollen, één omgeving', 'rows' => [['Gebruikers', 'Beheren'], ['Rollen & toegang', 'Organiseren'], ['Scholen', 'Verbinden']]],
+        ['id' => 'beheerder', 'label' => 'Beheerders', 'icon' => 'shield-check', 'eyebrow' => 'EEN GOEDE BASIS VOOR IEDEREEN', 'title' => 'Regel de toegang. Bewaar het overzicht.', 'text' => 'Beheer accounts en rollen en bekijk de actuele verdeling van je gebruikers.', 'points' => ['Gebruikers aanmaken, zoeken en bewerken', 'Rollen en accountstatus beheren', 'Statistieken uit de bestaande database'], 'preview' => 'Applicatiebeheer', 'metric' => '4', 'metricLabel' => 'rollen, één omgeving', 'rows' => [['Gebruikers', 'Beheren'], ['Rollen & toegang', 'Organiseren'], ['Status', 'Controleren']]],
     ];
     $questions = [
         ['Voor wie is DQAMA bedoeld?', 'DQAMA is een ontwikkelplatform voor studenten, coaches, teamleiders en applicatiebeheerders. Elke rol heeft een eigen dashboard met een passend overzicht.'],
-        ['Hoe krijg ik een account?', 'Je applicatiebeheerder maakt je account aan en koppelt het aan een rol en eventueel een school. Heb je nog geen inloggegevens? Vraag deze aan bij je begeleider of beheerder.'],
+        ['Hoe krijg ik een account?', 'Je applicatiebeheerder maakt je account aan en koppelt het aan een rol. Heb je nog geen inloggegevens? Vraag deze aan bij je begeleider of beheerder.'],
         ['Welk dashboard zie ik na het inloggen?', 'Na het inloggen controleert het platform je rol en accountstatus. Je komt vervolgens automatisch op het dashboard dat bij jouw rol hoort.'],
         ['Zijn de voorbeelden op deze pagina echte gegevens?', 'Nee. De previews op deze pagina gebruiken voorbeeldgegevens om het platform te laten zien. Persoonlijke gegevens en beheerfuncties zijn alleen beschikbaar na het inloggen.'],
-        ['Kan ik het platform op mijn telefoon openen?', 'De website past zich aan de schermgrootte van je telefoon, tablet of computer aan. Gebruik het webadres dat je school of projectgroep met je heeft gedeeld.'],
+        ['Kan ik het platform op mijn telefoon openen?', 'De website past zich aan de schermgrootte van je telefoon, tablet of computer aan. Gebruik het webadres dat je projectgroep met je heeft gedeeld.'],
     ];
 @endphp
 <!DOCTYPE html>
@@ -100,7 +100,7 @@
                 <div class="lp-container lp-audience-strip">
                     <span>ONTWORPEN RONDOM JOU</span>
                     <div>
-                        <x-landing-icon name="school" /> Studenten
+                        <x-landing-icon name="users" /> Studenten
                     </div>
                     <div>
                         <x-landing-icon name="users" /> Coaches
@@ -340,3 +340,4 @@
         </footer>
     </body>
 </html>
+

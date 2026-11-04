@@ -28,12 +28,10 @@ class ApplicationAdminController extends Controller
             'year' => ['nullable', 'integer', 'between:2000,'.now()->year],
             'q' => ['nullable', 'string', 'max:100'],
             'role' => ['nullable', 'integer', 'exists:rol,idrol'],
-            'school' => ['nullable', 'integer', 'exists:school,idschool'],
             'status' => ['nullable', Rule::in(['actief', 'inactief'])],
         ]);
-        // Zoek gebruikers met hun rol en school. Toon 12 gebruikers per pagina.
-        $members = User::query()->with('rol')->leftJoin('school', 'lid.school_idschool', '=', 'school.idschool')
-            ->select('lid.*', 'school.naam as school_naam')
+        // Zoek gebruikers met hun rol. Toon 12 gebruikers per pagina.
+        $members = User::query()->with('rol')
             ->when($filters['q'] ?? null, function ($query, $search) {
                 foreach (preg_split('/\s+/u', trim($search), -1, PREG_SPLIT_NO_EMPTY) as $term) {
                     $query->where(function ($query) use ($term) {
@@ -44,16 +42,11 @@ class ApplicationAdminController extends Controller
                 }
             })
             ->when($filters['role'] ?? null, fn ($query, $role) => $query->where('rol_idrol', $role))
-            ->when($filters['school'] ?? null, fn ($query, $school) => $query->where('school_idschool', $school))
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->orderBy('achternaam')->orderBy('idlid')->paginate(12)->withQueryString();
-        // Tel hoeveel gebruikers elke rol en elke school heeft.
+        // Tel hoeveel gebruikers elke rol heeft.
         $roles = Role::query()->withCount(['members as member_count'])->orderBy('naam')->get();
-        $schools = DB::table('school')->leftJoin('lid', 'school.idschool', '=', 'lid.school_idschool')
-            ->select('school.idschool', 'school.naam', 'school.adres', 'school.email')
-            ->selectRaw('COUNT(lid.idlid) as member_count')
-            ->groupBy('school.idschool', 'school.naam', 'school.adres', 'school.email')->orderBy('school.naam')->get();
-        $stats = ['members' => User::count(), 'active' => User::where('status', 'actief')->count(), 'roles' => $roles->count(), 'schools' => $schools->count()];
+        $stats = ['members' => User::count(), 'active' => User::where('status', 'actief')->count(), 'roles' => $roles->count()];
 
         // Tel nieuwe accounts per maand in het gekozen jaar. Een lege maand krijgt 0.
         $year = (int) ($filters['year'] ?? now()->year);
@@ -78,7 +71,7 @@ class ApplicationAdminController extends Controller
         ];
 
         // Geef de gegevens aan de pagina. Blade toont ze in de browser.
-        return view('dashboards.applicatiebeheerder', compact('members', 'roles', 'schools', 'stats', 'filters', 'analytics') + ['roleKey' => 'beheerder']);
+        return view('dashboards.applicatiebeheerder', compact('members', 'roles', 'stats', 'filters', 'analytics') + ['roleKey' => 'beheerder']);
     }
 
     // Open een leeg formulier voor een nieuwe gebruiker.
@@ -100,8 +93,7 @@ class ApplicationAdminController extends Controller
     private function form(User $member)
     {
         return view('dashboards.admin-member-form', [
-            'member' => $member, 'roles' => Role::orderBy('naam')->get(),
-            'schools' => DB::table('school')->orderBy('naam')->get(), 'roleKey' => 'beheerder',
+            'member' => $member, 'roles' => Role::orderBy('naam')->get(), 'roleKey' => 'beheerder',
         ]);
     }
 
@@ -155,7 +147,6 @@ class ApplicationAdminController extends Controller
             'achternaam' => ['required', 'string', 'max:50'],
             'email' => ['required', 'email', 'max:100', Rule::unique('lid', 'email')->ignore($member->getKey(), 'idlid')],
             'rol_idrol' => ['required', 'integer', 'exists:rol,idrol'],
-            'school_idschool' => ['nullable', 'integer', 'exists:school,idschool'],
             'status' => ['required', Rule::in(['actief', 'inactief'])],
             'password' => [$member->exists ? 'nullable' : 'required', 'string', 'min:12', 'max:128', 'confirmed'],
         ]);
@@ -165,7 +156,7 @@ class ApplicationAdminController extends Controller
                 throw ValidationException::withMessages(['status' => 'Je kunt je eigen rol of actieve status niet wijzigen.']);
             }
         }
-        foreach (['voornaam', 'achternaam', 'email', 'rol_idrol', 'school_idschool', 'status'] as $field) {
+        foreach (['voornaam', 'achternaam', 'email', 'rol_idrol', 'status'] as $field) {
             $member->{$field} = $data[$field] ?? null;
         }
         // Maak een hash van een nieuw wachtwoord. Bewaar nooit de gewone tekst.
@@ -179,17 +170,4 @@ class ApplicationAdminController extends Controller
         $member->save();
     }
 
-    // Controleer de schoolgegevens en voeg de school toe aan de database.
-    public function storeSchool(Request $request)
-    {
-        $this->authorizeAdmin($request);
-        $data = $request->validate([
-            'naam' => ['required', 'string', 'max:45'],
-            'adres' => ['nullable', 'string', 'max:45'],
-            'email' => ['nullable', 'email', 'max:45'],
-        ]);
-        DB::table('school')->insert($data);
-
-        return redirect()->route('dashboard')->with('success', 'School toegevoegd.');
-    }
 }
