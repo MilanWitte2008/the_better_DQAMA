@@ -515,3 +515,7 @@
 .admin-body .metric-bottom { color:#7690a3; }
 .admin-body .metric-mint .metric-bottom img { filter:none; }
 .admin-body .panel { border-color:#d5e6f0; border-radius:9px; background:#fff; box-shadow:0 3px 10px #12364c08; }
+
+.topbar .topbar-actions > .avatar.avatar-light{border-radius:50% !important;width:40px;height:40px;aspect-ratio:1 / 1}
+
+.admin-body .profile-chip > .avatar{border-radius:50% !important;width:40px;height:40px}

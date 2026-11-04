@@ -50,7 +50,7 @@
         </aside>
 
         <div class="main-column">
-            {{-- Bovenbalk met begroeting, zoeken, meldingen en uitloggen. --}}
+            {{-- Bovenbalk met begroeting, meldingen en uitloggen. --}}
             <header class="topbar" id="top">
                 <div>
                     <h1>@yield('welcome-title', 'Goedemiddag, ' . (auth()->user()->voornaam ?? 'welkom') . '!') <span aria-hidden="true">👋</span></h1>
@@ -58,8 +58,6 @@
                 </div>
                 <div class="topbar-actions">
                     @if($currentRoleKey !== 'beheerder')
-                    <label class="search-box"><span>⌕</span><input type="search" placeholder="Zoeken..."></label>
-                    <span class="notification" aria-label="Meldingen">♧<i>3</i></span>
                     @endif
                     <span class="avatar avatar-light">{{ strtoupper(substr(auth()->user()->voornaam ?? 'A', 0, 1) . substr(auth()->user()->achternaam ?? 'V', 0, 1)) }}</span>
                     <form method="POST" action="{{ url('/logout') }}">
