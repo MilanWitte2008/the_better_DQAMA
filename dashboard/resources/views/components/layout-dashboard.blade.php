@@ -8,6 +8,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Ontwikkelplatform')</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}?v=20261104">
     {{-- Laad de stijlbestanden. De beheerder krijgt ook eigen CSS en JavaScript. --}}
     @vite(($roleKey ?? auth()->user()?->dashboardRoleKey()) === 'beheerder'
         ? ['resources/css/app.css', 'resources/css/dashboard.css', 'resources/css/admin-dashboard.css', 'resources/js/admin-dashboard.js']

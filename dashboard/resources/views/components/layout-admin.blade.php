@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#073f4e">
     <title>@yield('title', 'Applicatiebeheer · ITIG')</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}?v=20261104">
     @vite(['resources/css/app.css', 'resources/css/admin-dashboard.css', 'resources/js/admin-dashboard.js'])
 </head>
 <body class="beheer-body">

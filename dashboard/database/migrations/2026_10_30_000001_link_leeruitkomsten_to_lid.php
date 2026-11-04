@@ -22,6 +22,27 @@ return new class extends Migration
             });
         }
 
+        if (Schema::hasTable('student_leeruitkomsten') && Schema::hasTable('student')) {
+            $studentAssignments = DB::table('student_leeruitkomsten as assignment')
+                ->join('student', 'student.idstudent', '=', 'assignment.student_idstudent')
+                ->select('assignment.leeruitkomsten_leeruitkomsten_id', 'student.lid_idlid', 'assignment.status')
+                ->get();
+
+            foreach ($studentAssignments as $assignment) {
+                $status = match (strtolower(trim((string) $assignment->status))) {
+                    'bezig' => 'Bezig',
+                    'behaald' => 'Behaald',
+                    default => 'Te doen',
+                };
+
+                DB::table('leeruitkomsten_has_lid')->insertOrIgnore([
+                    'leeruitkomsten_id' => $assignment->leeruitkomsten_leeruitkomsten_id,
+                    'lid_idlid' => $assignment->lid_idlid,
+                    'status' => $status,
+                ]);
+            }
+        }
+
         if (Schema::hasTable('fase_has_lid') && Schema::hasTable('leeruitkomsten')) {
             $phaseColumn = Schema::hasColumn('leeruitkomsten', 'fase_idfase1') ? 'fase_idfase1' : 'fase_idfase';
 
@@ -53,11 +74,11 @@ return new class extends Migration
             $index = DB::selectOne("SELECT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reflectie' AND COLUMN_NAME = 'fase_has_lid_fase_idfase' AND SEQ_IN_INDEX = 1");
 
             if ($foreignKey) {
-                DB::statement('ALTER TABLE reflectie DROP FOREIGN KEY `' . $foreignKey->CONSTRAINT_NAME . '`');
+                DB::statement('ALTER TABLE reflectie DROP FOREIGN KEY `'.$foreignKey->CONSTRAINT_NAME.'`');
             }
 
             if ($index) {
-                DB::statement('ALTER TABLE reflectie DROP INDEX `' . $index->INDEX_NAME . '`');
+                DB::statement('ALTER TABLE reflectie DROP INDEX `'.$index->INDEX_NAME.'`');
             }
 
             Schema::table('reflectie', function (Blueprint $table) {
@@ -88,7 +109,7 @@ return new class extends Migration
                 $phaseColumn = Schema::hasColumn('leeruitkomsten', 'fase_idfase1') ? 'fase_idfase1' : 'fase_idfase';
                 $assignments = DB::table('leeruitkomsten_has_lid as assignment')
                     ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
-                    ->select('outcome.' . $phaseColumn . ' as fase_idfase', 'assignment.lid_idlid')
+                    ->select('outcome.'.$phaseColumn.' as fase_idfase', 'assignment.lid_idlid')
                     ->distinct()
                     ->get();
 

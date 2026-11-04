@@ -1,60 +1,18 @@
-{{-- De gegevensservice is uitsluitend gekoppeld aan deze view; andere dashboards blijven ongewijzigd. --}}
+@extends('components.layout-dashboard')
+
+@section('title', 'Docentdashboard · Ontwikkelplatform')
+@section('welcome-title', 'Welkom terug, ' . ($user->voornaam ?? 'docent') . '!')
+@section('welcome-subtitle', 'Jouw studenten, hun ontwikkeling en je volgende gesprek. Op één plek.')
+
+@section('content')
 @php
     $dashboard = app(\App\DocentDashboard::class)->data($user, request());
     extract($dashboard, EXTR_SKIP);
-    $studentOptions = $students
-        ->mapWithKeys(
-            fn($item) => [$item->idstudent => $item->voornaam . ' ' . $item->achternaam . ' · ' . $item->klas],
-        )
-        ->all();
-    $dateLabel = fn($value) => $value
-        ? \Illuminate\Support\Carbon::parse($value)->format('d-m-Y H:i')
-        : 'Nog geen update';
+    $studentOptions = $students->mapWithKeys(fn ($item) => [$item->idstudent => $item->voornaam . ' ' . $item->achternaam . ' · ' . $item->klas])->all();
+    $dateLabel = fn ($value) => $value ? \Illuminate\Support\Carbon::parse($value)->format('d-m-Y H:i') : 'Nog geen update';
 @endphp
-<!DOCTYPE html>
-<html lang="nl">
+<div class="docent-dashboard">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Docentdashboard · Ontwikkelplatform</title>
-    <style>
-        @include('dashboards.docent-style')
-    </style>
-</head>
-
-<body class="docent-page">
-    <a class="skip" href="#inhoud">Naar inhoud</a>
-    <aside class="sidebar">
-        <a class="brand" href="{{ route('dashboard') }}"><span class="brand-icon">O<span>·</span></span>ontwikkel<span
-                class="brand-light">platform</span></a>
-        <p class="nav-caption">DOCENTOMGEVING</p>
-        <nav aria-label="Hoofdnavigatie">
-            <a href="#inhoud">◈ <span>Overzicht</span></a>
-            <a href="#studenten">♙ <span>Mijn studenten</span><b>{{ $students->count() }}</b></a>
-            <a href="#gesprekken">◷ <span>Coachgesprekken</span></a>
-            <a href="#notities">▤ <span>Notities</span></a>
-            <a href="#rapportages">▥ <span>Voortgang</span></a>
-        </nav>
-        <div class="sidebar-bottom"><span
-                class="profile-avatar">{{ mb_strtoupper(mb_substr($user->voornaam, 0, 1)) }}</span>
-            <div><strong>{{ $user->voornaam }} {{ $user->achternaam }}</strong><small>Docent · begeleiding</small></div>
-        </div>
-        <form method="POST" action="{{ url('/logout') }}">@csrf<button class="logout" type="submit">Uitloggen
-                ↗</button></form>
-    </aside>
-    <div class="workspace">
-        <header class="topbar"><span>Werkruimte <span class="muted">/</span> <strong
-                    id="section-title">Overzicht</strong></span><span class="date">{{ now()->format('d.m.Y') }}</span>
-        </header>
-        <main id="inhoud">
-            <div class="page-heading">
-                <div>
-                    <p class="eyebrow">SAMEN WERKEN AAN GROEI</p>
-                    <h1>Welkom terug, {{ $user->voornaam }}<span>.</span></h1>
-                    <p>Jouw studenten, hun ontwikkeling en je volgende gesprek. Op één plek.</p>
-                </div><a class="button secondary" href="{{ route('dashboard') }}">↻ Vernieuwen</a>
-            </div>
             @if (session('docent_success'))
                 <div class="notice success save-feedback" role="status" tabindex="-1">{{ session('docent_success') }}
                 </div>
@@ -79,14 +37,14 @@
                     <p>{{ $attentionCount }} {{ $attentionCount === 1 ? 'student heeft' : 'studenten hebben' }} nog
                         geen voortgangsupdate of geen update in de afgelopen 30 dagen.</p><a class="button"
                         href="{{ route('dashboard', ['filter' => 'aandacht']) }}#studenten">Bekijk aandachtspunten
-                        <span>↗</span></a>
+                        <span>?</span></a>
                 </div>
                 <div class="hero-art" aria-hidden="true"><span class="orbit one"></span><span
-                        class="orbit two"></span><span class="orbit three"></span><span class="art-center">↗</span><span
+                        class="orbit two"></span><span class="orbit three"></span><span class="art-center">?</span><span
                         class="art-label">Elke stap telt.</span></div>
             </section>
             <section class="metrics" aria-label="Kerncijfers">
-                @foreach ([['Mijn studenten', $students->count(), 'Actuele begeleidingskoppelingen', '♙'], ['Geplande gesprekken', $upcomingCount, 'Vanaf dit moment', '◷'], ['Behaalde leeruitkomsten', $achieved . ' / ' . $total, 'Van jouw studenten', '✓'], ['Mijn notities', $notesCount, 'Bij gekoppelde studenten', '▤']] as [$label, $value, $hint, $icon])
+                @foreach ([['Mijn studenten', $students->count(), 'Actuele begeleidingskoppelingen', '?'], ['Geplande gesprekken', $upcomingCount, 'Vanaf dit moment', '?'], ['Behaalde leeruitkomsten', $achieved . ' / ' . $total, 'Van jouw studenten', '?'], ['Mijn notities', $notesCount, 'Bij gekoppelde studenten', '?']] as [$label, $value, $hint, $icon])
                     <article class="metric">
                         <div><span>{{ $label }}</span><span class="metric-icon">{{ $icon }}</span>
                         </div><strong>{{ $value }}</strong><small>{{ $hint }}</small>
@@ -94,7 +52,7 @@
                 @endforeach
             </section>
             <div class="columns">
-                <section class="card students" id="studenten">
+                <section class="card students" id="studenten" data-dashboard-section="studenten">
                     <div class="section-heading">
                         <div>
                             <p class="eyebrow">BEGELEIDING</p>
@@ -102,7 +60,54 @@
                         </div><span class="live">Uit de database</span>
                     </div>
                     {{-- GET-filters delen dezelfde toegangsselectie als de detailweergave. --}}
-                    @include('dashboards.docent-student-create')
+                    @if($coachLinked)
+<details class="edit-panel" id="student-toevoegen" @if(old('_form') === 'student-new') open @endif>
+    <summary class="create-student-button">+ Student toevoegen</summary>
+    <p class="footnote">Maak een studentaccount aan en koppel het direct aan jouw begeleiding. De student kan inloggen met dit e-mailadres en wachtwoord. Een bestaand account koppelen verloopt via de beheerder.</p>
+    @php
+    $docentForm = ['formId' => 'student-new', 'action' => route('docent.students.store'), 'method' => 'POST', 'fields' => [
+        'voornaam' => ['label' => 'Voornaam', 'max' => 50, 'required' => true],
+        'achternaam' => ['label' => 'Achternaam', 'max' => 50, 'required' => true],
+        'email' => ['label' => 'E-mailadres', 'type' => 'email', 'max' => 100, 'required' => true],
+        'password' => ['label' => 'Wachtwoord (minimaal 8 tekens)', 'type' => 'password', 'max' => 72, 'required' => true],
+        'password_confirmation' => ['label' => 'Herhaal wachtwoord', 'type' => 'password', 'max' => 72, 'required' => true],
+        'studentnummer' => ['label' => 'Studentnummer (optioneel)', 'max' => 20],
+        'klas' => ['label' => 'Klas (optioneel)', 'max' => 20],
+        'opleiding' => ['label' => 'Opleiding (optioneel)', 'max' => 50],
+    ]];
+@endphp
+@php
+    $formId = $docentForm['formId'];
+    $action = $docentForm['action'];
+    $method = $docentForm['method'] ?? 'POST';
+    $fields = $docentForm['fields'];
+    $restore = old('_form') === $formId;
+@endphp
+<form class="docent-form" action="{{ $action }}" method="POST">
+    @csrf
+    @if($method !== 'POST') @method($method) @endif
+    <input type="hidden" name="_form" value="{{ $formId }}">
+    @foreach($fields as $name => $field)
+        @php
+        $value = ($field['type'] ?? '') === 'password' ? '' : ($restore ? old($name) : ($field['value'] ?? ''));
+    @endphp
+        <label for="{{ $formId }}-{{ $name }}">{{ $field['label'] }}
+            @if(($field['type'] ?? '') === 'select')
+                <select id="{{ $formId }}-{{ $name }}" name="{{ $name }}" @required($field['required'] ?? false)>
+                    @foreach($field['options'] as $key => $label)<option value="{{ $key }}" @selected((string) $value === (string) $key)>{{ $label }}</option>@endforeach
+                </select>
+            @elseif(($field['type'] ?? '') === 'textarea')
+                <textarea id="{{ $formId }}-{{ $name }}" name="{{ $name }}" rows="3" maxlength="{{ $field['max'] ?? 10000 }}" @required($field['required'] ?? false)>{{ $value }}</textarea>
+            @else
+                <input id="{{ $formId }}-{{ $name }}" name="{{ $name }}" type="{{ $field['type'] ?? 'text' }}" value="{{ $value }}" maxlength="{{ $field['max'] ?? 255 }}" @required($field['required'] ?? false)>
+            @endif
+            @if($restore) @error($name)<span class="field-error">{{ $message }}</span>@enderror @endif
+        </label>
+    @endforeach
+    <button class="button dark" type="submit">Opslaan</button>
+</form>
+</details>
+@endif
             <form class="filters" method="GET" action="{{ route('dashboard') }}#studenten">
                         <label><span>Zoeken</span><input name="q" type="search" maxlength="100"
                                 value="{{ $search }}" placeholder="Naam, e-mail of studentnummer"></label>
@@ -185,9 +190,11 @@
                     <div class="table-footer">{{ $filtered->count() }} van {{ $students->count() }} studenten ·
                         Alleen jouw actuele begeleiding</div>
                 </section>
-                <section class="card" id="rapportages">
+                <section class="card" id="rapportages" data-dashboard-section="rapportages">
                     <p class="eyebrow">ONTWIKKELING IN BEELD</p>
-                    <h2>Elke stap vooruit</h2>@php($percentage = $total ? (int) round(($achieved / $total) * 100) : 0)<div class="ring"
+                    <h2>Elke stap vooruit</h2>@php
+                        $percentage = $total ? (int) round(($achieved / $total) * 100) : 0;
+                    @endphp<div class="ring"
                         style="--progress: {{ $percentage }}%">
                         <div><strong>{{ $total ? $percentage . '%' : '—' }}</strong><span>behaald</span></div>
                     </div>
@@ -214,7 +221,8 @@
                     </div>
                     <details class="edit-panel" open>
                         <summary>Studentgegevens bewerken</summary>
-                        @include('dashboards.docent-form', [
+                        @php
+    $docentForm = [
                             'formId' => 'student-' . $selected->idstudent,
                             'action' => route('docent.students.update', $selected->idstudent),
                             'method' => 'PUT',
@@ -226,12 +234,44 @@
                                     'max' => 50,
                                 ],
                             ],
-                        ])
+                        ];
+@endphp
+@php
+    $formId = $docentForm['formId'];
+    $action = $docentForm['action'];
+    $method = $docentForm['method'] ?? 'POST';
+    $fields = $docentForm['fields'];
+    $restore = old('_form') === $formId;
+@endphp
+<form class="docent-form" action="{{ $action }}" method="POST">
+    @csrf
+    @if($method !== 'POST') @method($method) @endif
+    <input type="hidden" name="_form" value="{{ $formId }}">
+    @foreach($fields as $name => $field)
+        @php
+        $value = ($field['type'] ?? '') === 'password' ? '' : ($restore ? old($name) : ($field['value'] ?? ''));
+    @endphp
+        <label for="{{ $formId }}-{{ $name }}">{{ $field['label'] }}
+            @if(($field['type'] ?? '') === 'select')
+                <select id="{{ $formId }}-{{ $name }}" name="{{ $name }}" @required($field['required'] ?? false)>
+                    @foreach($field['options'] as $key => $label)<option value="{{ $key }}" @selected((string) $value === (string) $key)>{{ $label }}</option>@endforeach
+                </select>
+            @elseif(($field['type'] ?? '') === 'textarea')
+                <textarea id="{{ $formId }}-{{ $name }}" name="{{ $name }}" rows="3" maxlength="{{ $field['max'] ?? 10000 }}" @required($field['required'] ?? false)>{{ $value }}</textarea>
+            @else
+                <input id="{{ $formId }}-{{ $name }}" name="{{ $name }}" type="{{ $field['type'] ?? 'text' }}" value="{{ $value }}" maxlength="{{ $field['max'] ?? 255 }}" @required($field['required'] ?? false)>
+            @endif
+            @if($restore) @error($name)<span class="field-error">{{ $message }}</span>@enderror @endif
+        </label>
+    @endforeach
+    <button class="button dark" type="submit">Opslaan</button>
+</form>
                     </details>
                     @if ($availableOutcomes->isNotEmpty())
                         <details class="edit-panel" open>
                             <summary>Leeruitkomst toevoegen</summary>
-                            @include('dashboards.docent-form', [
+                            @php
+    $docentForm = [
                                 'formId' => 'outcome-new',
                                 'action' => route('docent.outcomes.store', $selected->idstudent),
                                 'method' => 'POST',
@@ -246,7 +286,38 @@
                                         'required' => true,
                                     ],
                                 ],
-                            ])
+                            ];
+@endphp
+@php
+    $formId = $docentForm['formId'];
+    $action = $docentForm['action'];
+    $method = $docentForm['method'] ?? 'POST';
+    $fields = $docentForm['fields'];
+    $restore = old('_form') === $formId;
+@endphp
+<form class="docent-form" action="{{ $action }}" method="POST">
+    @csrf
+    @if($method !== 'POST') @method($method) @endif
+    <input type="hidden" name="_form" value="{{ $formId }}">
+    @foreach($fields as $name => $field)
+        @php
+        $value = ($field['type'] ?? '') === 'password' ? '' : ($restore ? old($name) : ($field['value'] ?? ''));
+    @endphp
+        <label for="{{ $formId }}-{{ $name }}">{{ $field['label'] }}
+            @if(($field['type'] ?? '') === 'select')
+                <select id="{{ $formId }}-{{ $name }}" name="{{ $name }}" @required($field['required'] ?? false)>
+                    @foreach($field['options'] as $key => $label)<option value="{{ $key }}" @selected((string) $value === (string) $key)>{{ $label }}</option>@endforeach
+                </select>
+            @elseif(($field['type'] ?? '') === 'textarea')
+                <textarea id="{{ $formId }}-{{ $name }}" name="{{ $name }}" rows="3" maxlength="{{ $field['max'] ?? 10000 }}" @required($field['required'] ?? false)>{{ $value }}</textarea>
+            @else
+                <input id="{{ $formId }}-{{ $name }}" name="{{ $name }}" type="{{ $field['type'] ?? 'text' }}" value="{{ $value }}" maxlength="{{ $field['max'] ?? 255 }}" @required($field['required'] ?? false)>
+            @endif
+            @if($restore) @error($name)<span class="field-error">{{ $message }}</span>@enderror @endif
+        </label>
+    @endforeach
+    <button class="button dark" type="submit">Opslaan</button>
+</form>
                         </details>
                     @endif
                     <div class="outcomes">
@@ -257,7 +328,8 @@
                                     {{ $dateLabel($outcome->laatste_update) }}</small>
                                 <details class="edit-panel" @if (old('_form') === 'outcome-' . $outcome->id_leeruitkomsten) open @endif>
                                     <summary>Voortgang bewerken</summary>
-                                    @include('dashboards.docent-form', [
+                                    @php
+    $docentForm = [
                                         'formId' => 'outcome-' . $outcome->id_leeruitkomsten,
                                         'action' => route('docent.outcomes.update', $outcome->id_leeruitkomsten),
                                         'method' => 'PUT',
@@ -279,7 +351,38 @@
                                                 'value' => $outcome->opmerking,
                                             ],
                                         ],
-                                    ])
+                                    ];
+@endphp
+@php
+    $formId = $docentForm['formId'];
+    $action = $docentForm['action'];
+    $method = $docentForm['method'] ?? 'POST';
+    $fields = $docentForm['fields'];
+    $restore = old('_form') === $formId;
+@endphp
+<form class="docent-form" action="{{ $action }}" method="POST">
+    @csrf
+    @if($method !== 'POST') @method($method) @endif
+    <input type="hidden" name="_form" value="{{ $formId }}">
+    @foreach($fields as $name => $field)
+        @php
+        $value = ($field['type'] ?? '') === 'password' ? '' : ($restore ? old($name) : ($field['value'] ?? ''));
+    @endphp
+        <label for="{{ $formId }}-{{ $name }}">{{ $field['label'] }}
+            @if(($field['type'] ?? '') === 'select')
+                <select id="{{ $formId }}-{{ $name }}" name="{{ $name }}" @required($field['required'] ?? false)>
+                    @foreach($field['options'] as $key => $label)<option value="{{ $key }}" @selected((string) $value === (string) $key)>{{ $label }}</option>@endforeach
+                </select>
+            @elseif(($field['type'] ?? '') === 'textarea')
+                <textarea id="{{ $formId }}-{{ $name }}" name="{{ $name }}" rows="3" maxlength="{{ $field['max'] ?? 10000 }}" @required($field['required'] ?? false)>{{ $value }}</textarea>
+            @else
+                <input id="{{ $formId }}-{{ $name }}" name="{{ $name }}" type="{{ $field['type'] ?? 'text' }}" value="{{ $value }}" maxlength="{{ $field['max'] ?? 255 }}" @required($field['required'] ?? false)>
+            @endif
+            @if($restore) @error($name)<span class="field-error">{{ $message }}</span>@enderror @endif
+        </label>
+    @endforeach
+    <button class="button dark" type="submit">Opslaan</button>
+</form>
                                 </details>
                         </article>@empty<p class="empty">Voor deze student zijn nog geen leeruitkomsten
                                 vastgelegd.</p>
@@ -291,7 +394,7 @@
                 </div>
             @endif
             <div class="bottom-columns">
-                <section class="card" id="gesprekken">
+                <section class="card" id="gesprekken" data-dashboard-section="gesprekken">
                     <div class="section-heading">
                         <div>
                             <p class="eyebrow">TIJD VOOR EEN GESPREK</p>
@@ -301,7 +404,8 @@
                     @if ($students->isNotEmpty())
                         <details class="edit-panel" @if (old('_form') === 'meeting-new') open @endif>
                             <summary>+ Gesprek plannen</summary>
-                            @include('dashboards.docent-form', [
+                            @php
+    $docentForm = [
                                 'formId' => 'meeting-new',
                                 'action' => route('docent.meetings.store'),
                                 'method' => 'POST',
@@ -321,7 +425,38 @@
                                     'inhoud' => ['label' => 'Gespreksverslag', 'type' => 'textarea'],
                                     'afspraken' => ['label' => 'Afspraken', 'type' => 'textarea'],
                                 ],
-                            ])
+                            ];
+@endphp
+@php
+    $formId = $docentForm['formId'];
+    $action = $docentForm['action'];
+    $method = $docentForm['method'] ?? 'POST';
+    $fields = $docentForm['fields'];
+    $restore = old('_form') === $formId;
+@endphp
+<form class="docent-form" action="{{ $action }}" method="POST">
+    @csrf
+    @if($method !== 'POST') @method($method) @endif
+    <input type="hidden" name="_form" value="{{ $formId }}">
+    @foreach($fields as $name => $field)
+        @php
+        $value = ($field['type'] ?? '') === 'password' ? '' : ($restore ? old($name) : ($field['value'] ?? ''));
+    @endphp
+        <label for="{{ $formId }}-{{ $name }}">{{ $field['label'] }}
+            @if(($field['type'] ?? '') === 'select')
+                <select id="{{ $formId }}-{{ $name }}" name="{{ $name }}" @required($field['required'] ?? false)>
+                    @foreach($field['options'] as $key => $label)<option value="{{ $key }}" @selected((string) $value === (string) $key)>{{ $label }}</option>@endforeach
+                </select>
+            @elseif(($field['type'] ?? '') === 'textarea')
+                <textarea id="{{ $formId }}-{{ $name }}" name="{{ $name }}" rows="3" maxlength="{{ $field['max'] ?? 10000 }}" @required($field['required'] ?? false)>{{ $value }}</textarea>
+            @else
+                <input id="{{ $formId }}-{{ $name }}" name="{{ $name }}" type="{{ $field['type'] ?? 'text' }}" value="{{ $value }}" maxlength="{{ $field['max'] ?? 255 }}" @required($field['required'] ?? false)>
+            @endif
+            @if($restore) @error($name)<span class="field-error">{{ $message }}</span>@enderror @endif
+        </label>
+    @endforeach
+    <button class="button dark" type="submit">Opslaan</button>
+</form>
                         </details>
                     @endif
                     @forelse($upcoming as $meeting)
@@ -339,9 +474,50 @@
                                         <p class="preserve">{{ $meeting->inhoud }}</p>
                                         <p class="preserve">{{ $meeting->afspraken }}</p>
                                     </details>
-                                @endif@include('dashboards.docent-meeting-edit')
+                                @endif<details class="edit-panel" @if(old('_form') === 'meeting-'.$meeting->idgesprek) open @endif>
+    <summary>Gesprek bewerken</summary>
+    @php
+    $docentForm = ['formId' => 'meeting-'.$meeting->idgesprek, 'action' => route('docent.meetings.update', $meeting->idgesprek), 'method' => 'PUT', 'fields' => [
+        'onderwerp' => ['label' => 'Onderwerp', 'value' => $meeting->onderwerp, 'required' => true],
+        'datum' => ['label' => 'Datum en tijd', 'type' => 'datetime-local', 'value' => $meeting->datum ? \Illuminate\Support\Carbon::parse($meeting->datum)->format('Y-m-d\TH:i') : '', 'required' => true],
+        'inhoud' => ['label' => 'Gespreksverslag', 'type' => 'textarea', 'value' => $meeting->inhoud],
+        'afspraken' => ['label' => 'Afspraken', 'type' => 'textarea', 'value' => $meeting->afspraken],
+    ]];
+@endphp
+@php
+    $formId = $docentForm['formId'];
+    $action = $docentForm['action'];
+    $method = $docentForm['method'] ?? 'POST';
+    $fields = $docentForm['fields'];
+    $restore = old('_form') === $formId;
+@endphp
+<form class="docent-form" action="{{ $action }}" method="POST">
+    @csrf
+    @if($method !== 'POST') @method($method) @endif
+    <input type="hidden" name="_form" value="{{ $formId }}">
+    @foreach($fields as $name => $field)
+        @php
+        $value = ($field['type'] ?? '') === 'password' ? '' : ($restore ? old($name) : ($field['value'] ?? ''));
+    @endphp
+        <label for="{{ $formId }}-{{ $name }}">{{ $field['label'] }}
+            @if(($field['type'] ?? '') === 'select')
+                <select id="{{ $formId }}-{{ $name }}" name="{{ $name }}" @required($field['required'] ?? false)>
+                    @foreach($field['options'] as $key => $label)<option value="{{ $key }}" @selected((string) $value === (string) $key)>{{ $label }}</option>@endforeach
+                </select>
+            @elseif(($field['type'] ?? '') === 'textarea')
+                <textarea id="{{ $formId }}-{{ $name }}" name="{{ $name }}" rows="3" maxlength="{{ $field['max'] ?? 10000 }}" @required($field['required'] ?? false)>{{ $value }}</textarea>
+            @else
+                <input id="{{ $formId }}-{{ $name }}" name="{{ $name }}" type="{{ $field['type'] ?? 'text' }}" value="{{ $value }}" maxlength="{{ $field['max'] ?? 255 }}" @required($field['required'] ?? false)>
+            @endif
+            @if($restore) @error($name)<span class="field-error">{{ $message }}</span>@enderror @endif
+        </label>
+    @endforeach
+    <button class="button dark" type="submit">Opslaan</button>
+</form>
+    <form method="POST" action="{{ route('docent.meetings.destroy', $meeting->idgesprek) }}" data-confirm="Dit gesprek verwijderen?">@csrf @method('DELETE')<button class="danger" type="submit">Gesprek verwijderen</button></form>
+</details>
                             </div>
-                    </article>@empty<div class="empty"><span class="empty-symbol">◷</span><strong>Even ruimte in
+                    </article>@empty<div class="empty"><span class="empty-symbol">?</span><strong>Even ruimte in
                                 de agenda</strong>
                             <p>Er zijn geen komende gesprekken vastgelegd voor jouw studenten.</p>
                         </div>
@@ -353,12 +529,53 @@
                                 <strong>{{ $meeting->onderwerp ?: 'Coachgesprek' }}</strong><small>{{ $meeting->voornaam }}
                                     {{ $meeting->achternaam }} · {{ $dateLabel($meeting->datum) }}</small>
                                 <p class="preserve">{{ $meeting->inhoud }}</p>
-                                <p class="preserve">{{ $meeting->afspraken }}</p>@include('dashboards.docent-meeting-edit')
+                                <p class="preserve">{{ $meeting->afspraken }}</p><details class="edit-panel" @if(old('_form') === 'meeting-'.$meeting->idgesprek) open @endif>
+    <summary>Gesprek bewerken</summary>
+    @php
+    $docentForm = ['formId' => 'meeting-'.$meeting->idgesprek, 'action' => route('docent.meetings.update', $meeting->idgesprek), 'method' => 'PUT', 'fields' => [
+        'onderwerp' => ['label' => 'Onderwerp', 'value' => $meeting->onderwerp, 'required' => true],
+        'datum' => ['label' => 'Datum en tijd', 'type' => 'datetime-local', 'value' => $meeting->datum ? \Illuminate\Support\Carbon::parse($meeting->datum)->format('Y-m-d\TH:i') : '', 'required' => true],
+        'inhoud' => ['label' => 'Gespreksverslag', 'type' => 'textarea', 'value' => $meeting->inhoud],
+        'afspraken' => ['label' => 'Afspraken', 'type' => 'textarea', 'value' => $meeting->afspraken],
+    ]];
+@endphp
+@php
+    $formId = $docentForm['formId'];
+    $action = $docentForm['action'];
+    $method = $docentForm['method'] ?? 'POST';
+    $fields = $docentForm['fields'];
+    $restore = old('_form') === $formId;
+@endphp
+<form class="docent-form" action="{{ $action }}" method="POST">
+    @csrf
+    @if($method !== 'POST') @method($method) @endif
+    <input type="hidden" name="_form" value="{{ $formId }}">
+    @foreach($fields as $name => $field)
+        @php
+        $value = ($field['type'] ?? '') === 'password' ? '' : ($restore ? old($name) : ($field['value'] ?? ''));
+    @endphp
+        <label for="{{ $formId }}-{{ $name }}">{{ $field['label'] }}
+            @if(($field['type'] ?? '') === 'select')
+                <select id="{{ $formId }}-{{ $name }}" name="{{ $name }}" @required($field['required'] ?? false)>
+                    @foreach($field['options'] as $key => $label)<option value="{{ $key }}" @selected((string) $value === (string) $key)>{{ $label }}</option>@endforeach
+                </select>
+            @elseif(($field['type'] ?? '') === 'textarea')
+                <textarea id="{{ $formId }}-{{ $name }}" name="{{ $name }}" rows="3" maxlength="{{ $field['max'] ?? 10000 }}" @required($field['required'] ?? false)>{{ $value }}</textarea>
+            @else
+                <input id="{{ $formId }}-{{ $name }}" name="{{ $name }}" type="{{ $field['type'] ?? 'text' }}" value="{{ $value }}" maxlength="{{ $field['max'] ?? 255 }}" @required($field['required'] ?? false)>
+            @endif
+            @if($restore) @error($name)<span class="field-error">{{ $message }}</span>@enderror @endif
+        </label>
+    @endforeach
+    <button class="button dark" type="submit">Opslaan</button>
+</form>
+    <form method="POST" action="{{ route('docent.meetings.destroy', $meeting->idgesprek) }}" data-confirm="Dit gesprek verwijderen?">@csrf @method('DELETE')<button class="danger" type="submit">Gesprek verwijderen</button></form>
+</details>
                         </article>@empty<p class="muted">Nog geen eerdere gesprekken.</p>
                         @endforelse
                     </details>
                 </section>
-                <section class="card" id="notities">
+                <section class="card" id="notities" data-dashboard-section="notities">
                     <div class="section-heading">
                         <div>
                             <p class="eyebrow">VASTGELEGD OM TE ONTHOUDEN</p>
@@ -368,7 +585,8 @@
                     @if ($students->isNotEmpty())
                         <details class="edit-panel" @if (old('_form') === 'note-new') open @endif>
                             <summary>+ Notitie toevoegen</summary>
-                            @include('dashboards.docent-form', [
+                            @php
+    $docentForm = [
                                 'formId' => 'note-new',
                                 'action' => route('docent.notes.store'),
                                 'method' => 'POST',
@@ -391,7 +609,38 @@
                                     ],
                                     'inhoud' => ['label' => 'Notitie', 'type' => 'textarea', 'required' => true],
                                 ],
-                            ])
+                            ];
+@endphp
+@php
+    $formId = $docentForm['formId'];
+    $action = $docentForm['action'];
+    $method = $docentForm['method'] ?? 'POST';
+    $fields = $docentForm['fields'];
+    $restore = old('_form') === $formId;
+@endphp
+<form class="docent-form" action="{{ $action }}" method="POST">
+    @csrf
+    @if($method !== 'POST') @method($method) @endif
+    <input type="hidden" name="_form" value="{{ $formId }}">
+    @foreach($fields as $name => $field)
+        @php
+        $value = ($field['type'] ?? '') === 'password' ? '' : ($restore ? old($name) : ($field['value'] ?? ''));
+    @endphp
+        <label for="{{ $formId }}-{{ $name }}">{{ $field['label'] }}
+            @if(($field['type'] ?? '') === 'select')
+                <select id="{{ $formId }}-{{ $name }}" name="{{ $name }}" @required($field['required'] ?? false)>
+                    @foreach($field['options'] as $key => $label)<option value="{{ $key }}" @selected((string) $value === (string) $key)>{{ $label }}</option>@endforeach
+                </select>
+            @elseif(($field['type'] ?? '') === 'textarea')
+                <textarea id="{{ $formId }}-{{ $name }}" name="{{ $name }}" rows="3" maxlength="{{ $field['max'] ?? 10000 }}" @required($field['required'] ?? false)>{{ $value }}</textarea>
+            @else
+                <input id="{{ $formId }}-{{ $name }}" name="{{ $name }}" type="{{ $field['type'] ?? 'text' }}" value="{{ $value }}" maxlength="{{ $field['max'] ?? 255 }}" @required($field['required'] ?? false)>
+            @endif
+            @if($restore) @error($name)<span class="field-error">{{ $message }}</span>@enderror @endif
+        </label>
+    @endforeach
+    <button class="button dark" type="submit">Opslaan</button>
+</form>
                         </details>
                     @endif
                     @forelse($notes as $note)
@@ -403,7 +652,8 @@
                                 class="note-type">{{ $note->type ?: 'Notitie' }}</span>
                             <details class="edit-panel" @if (old('_form') === 'note-' . $note->id_notitie) open @endif>
                                 <summary>Notitie bewerken</summary>
-                                @include('dashboards.docent-form', [
+                                @php
+    $docentForm = [
                                     'formId' => 'note-' . $note->id_notitie,
                                     'action' => route('docent.notes.update', $note->id_notitie),
                                     'method' => 'PUT',
@@ -421,12 +671,43 @@
                                             'required' => true,
                                         ],
                                     ],
-                                ])
+                                ];
+@endphp
+@php
+    $formId = $docentForm['formId'];
+    $action = $docentForm['action'];
+    $method = $docentForm['method'] ?? 'POST';
+    $fields = $docentForm['fields'];
+    $restore = old('_form') === $formId;
+@endphp
+<form class="docent-form" action="{{ $action }}" method="POST">
+    @csrf
+    @if($method !== 'POST') @method($method) @endif
+    <input type="hidden" name="_form" value="{{ $formId }}">
+    @foreach($fields as $name => $field)
+        @php
+        $value = ($field['type'] ?? '') === 'password' ? '' : ($restore ? old($name) : ($field['value'] ?? ''));
+    @endphp
+        <label for="{{ $formId }}-{{ $name }}">{{ $field['label'] }}
+            @if(($field['type'] ?? '') === 'select')
+                <select id="{{ $formId }}-{{ $name }}" name="{{ $name }}" @required($field['required'] ?? false)>
+                    @foreach($field['options'] as $key => $label)<option value="{{ $key }}" @selected((string) $value === (string) $key)>{{ $label }}</option>@endforeach
+                </select>
+            @elseif(($field['type'] ?? '') === 'textarea')
+                <textarea id="{{ $formId }}-{{ $name }}" name="{{ $name }}" rows="3" maxlength="{{ $field['max'] ?? 10000 }}" @required($field['required'] ?? false)>{{ $value }}</textarea>
+            @else
+                <input id="{{ $formId }}-{{ $name }}" name="{{ $name }}" type="{{ $field['type'] ?? 'text' }}" value="{{ $value }}" maxlength="{{ $field['max'] ?? 255 }}" @required($field['required'] ?? false)>
+            @endif
+            @if($restore) @error($name)<span class="field-error">{{ $message }}</span>@enderror @endif
+        </label>
+    @endforeach
+    <button class="button dark" type="submit">Opslaan</button>
+</form>
                                 <form method="POST" action="{{ route('docent.notes.destroy', $note->id_notitie) }}"
                                     data-confirm="Deze notitie verwijderen?">@csrf @method('DELETE')<button
                                         class="danger" type="submit">Notitie verwijderen</button></form>
                             </details>
-                    </article>@empty<div class="empty"><span class="empty-symbol">▤</span><strong>Een frisse
+                    </article>@empty<div class="empty"><span class="empty-symbol">?</span><strong>Een frisse
                                 start</strong>
                             <p>Je hebt nog geen notities bij je huidige studenten vastgelegd.</p>
                         </div>
@@ -435,12 +716,53 @@
                 </section>
             </div>
             <footer>Ontwikkelplatform <span>Gegevens opgehaald op {{ now()->format('d-m-Y H:i') }} · <a
-                        href="#inhoud">Terug naar boven ↑</a></span></footer>
-        </main>
-    </div>
-    <script>
-        @include('dashboards.docent-script')
-    </script>
-</body>
+                        href="#inhoud">Terug naar boven ?</a></span></footer>
+<script>
+/* De actieve navigatie volgt de URL, ook bij terug/vooruit en toetsenbordbediening. */
+(() => {
+const links = [...document.querySelectorAll('.sidebar nav a')];
+const title = document.getElementById('section-title');
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const activate = (id, animate = false) => {
+const target = id === 'student-detail' ? 'studenten' : id;
+links.forEach(link => {
+const active = link.hash === '#' + target;
+link.classList.toggle('active', active);
+if (active) {
+link.setAttribute('aria-current', 'location');
+title.textContent = link.querySelector('span').textContent;
+} else link.removeAttribute('aria-current');
+});
+const section = document.getElementById(id);
+if (animate && section && !reducedMotion.matches) {
+section.animate([{opacity: .5, transform: 'translateY(8px)'}, {opacity: 1, transform: 'translateY(0)'}], {duration: 300,
+easing: 'ease-out'});
+}
+};
+const known = id => links.some(link => link.hash === '#' + id) || id === 'student-detail';
+const fromHash = () => {
+const id = location.hash.slice(1);
+activate(known(id) ? id : 'inhoud', true);
+};
+links.forEach(link => link.addEventListener('click', () => {
+if (location.hash === link.hash) activate(link.hash.slice(1), true);
+}));
+window.addEventListener('hashchange', fromHash);
+fromHash();
+const error = document.querySelector('.validation-feedback');
+if (error) { error.focus(); error.scrollIntoView({block: 'center'}); }
+const feedback = document.querySelector('.save-feedback');
+if (feedback) {
+const close = document.createElement('button');
+close.type = 'button'; close.textContent = 'Ã—'; close.setAttribute('aria-label', 'Melding sluiten');
+close.addEventListener('click', () => feedback.remove()); feedback.append(close);
+}
+document.querySelectorAll('form[data-confirm]').forEach(form => form.addEventListener('submit', event => {
+if (!confirm(form.dataset.confirm)) event.preventDefault();
+}));
+})();
 
-</html>
+</script>
+
+</div>
+@endsection

@@ -39,6 +39,7 @@
         <meta property="og:type" content="website">
         <meta property="og:locale" content="nl_NL">
         <title>DQAMA — Ruimte om te groeien</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}?v=20261104">
         {{-- Laad de CSS voor het uiterlijk en JavaScript voor de knoppen en tabs. --}}
         @vite(['resources/css/landing.css', 'resources/js/landing.js'])
     </head>
