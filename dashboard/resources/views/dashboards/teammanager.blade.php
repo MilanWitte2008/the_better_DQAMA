@@ -106,28 +106,72 @@
 
     <section class="panel team-outcomes-panel" data-dashboard-section="groepen">
         <h3>Voortgang per leeruitkomst (groep)</h3>
-        @forelse ($outcomeProgress as $outcome)
-            <div class="team-outcome-row">
-                <div>
-                    <span>
-                        <strong class="team-outcome-title">{{ $outcome->label ?: 'Leeruitkomst zonder titel' }}</strong>
-                        @if ($outcome->code)
-                            <small class="team-outcome-code">{{ $outcome->code }}</small>
-                        @endif
-                    </span>
-                    <strong>{{ $outcome->progress }}%</strong>
-                </div>
-                @if ($outcome->description)
-                    <p class="team-outcome-description">{{ $outcome->description }}</p>
-                @endif
-                <div class="team-outcome-track" role="img" aria-label="{{ $outcome->label }}: {{ $outcome->progress }} procent">
-                    <span style="width: {{ $outcome->progress }}%"></span>
-                </div>
+        @if ($outcomeProgress->isNotEmpty())
+            <div class="scroll-field">
+                <ul class="goal-list">
+                    @foreach ($outcomeProgress as $outcome)
+                        <li class="goal-item">
+                            <button
+                                class="goal-trigger"
+                                type="button"
+                                data-outcome-title="{{ $outcome->label ?: 'Leeruitkomst zonder titel' }}"
+                                data-outcome-status="{{ $outcome->progress }}% behaald binnen de groep"
+                                data-outcome-description="{{ $outcome->description ?? '' }}"
+                                aria-haspopup="dialog"
+                                aria-controls="team-outcome-dialog"
+                            >
+                                <span class="goal-copy">
+                                    <strong>{{ $outcome->label ?: 'Leeruitkomst zonder titel' }}</strong>
+                                </span>
+                                <span class="goal-tag">{{ $outcome->progress }}%</span>
+                            </button>
+                            @if ($outcome->description)
+                                <small class="widget-detail">{{ $outcome->description }}</small>
+                            @endif
+                            <small class="widget-detail">{{ $outcome->completed }} / {{ $outcome->total }} studenten hebben deze leeruitkomst behaald.</small>
+                        </li>
+                    @endforeach
+                </ul>
             </div>
-        @empty
+        @else
             <p class="muted-line">Er zijn nog geen leeruitkomsten voor deze groep geregistreerd.</p>
-        @endforelse
+        @endif
     </section>
+
+    <dialog class="outcome-dialog" id="team-outcome-dialog" aria-labelledby="team-outcome-dialog-title">
+        <div class="outcome-dialog-header">
+            <h2 id="team-outcome-dialog-title"></h2>
+            <button class="outcome-dialog-close" type="button" aria-label="Sluiten" data-team-outcome-dialog-close>&times;</button>
+        </div>
+        <p class="outcome-dialog-status" id="team-outcome-dialog-status"></p>
+        <p class="outcome-dialog-description" id="team-outcome-dialog-description"></p>
+    </dialog>
+
+    <script>
+        const teamOutcomeDialog = document.getElementById('team-outcome-dialog');
+        const teamOutcomeDialogTitle = document.getElementById('team-outcome-dialog-title');
+        const teamOutcomeDialogStatus = document.getElementById('team-outcome-dialog-status');
+        const teamOutcomeDialogDescription = document.getElementById('team-outcome-dialog-description');
+
+        document.querySelectorAll('.team-outcomes-panel .goal-trigger').forEach((trigger) => {
+            trigger.addEventListener('click', () => {
+                teamOutcomeDialogTitle.textContent = trigger.dataset.outcomeTitle;
+                teamOutcomeDialogStatus.textContent = trigger.dataset.outcomeStatus;
+                teamOutcomeDialogDescription.textContent = trigger.dataset.outcomeDescription || 'Geen omschrijving beschikbaar.';
+                teamOutcomeDialog.showModal();
+            });
+        });
+
+        document.querySelector('[data-team-outcome-dialog-close]').addEventListener('click', () => {
+            teamOutcomeDialog.close();
+        });
+
+        teamOutcomeDialog.addEventListener('click', (event) => {
+            if (event.target === teamOutcomeDialog) {
+                teamOutcomeDialog.close();
+            }
+        });
+    </script>
 
     {{-- Toon de huidige voortgang; de database bewaart geen historische voortgangsmetingen. --}}
     <div class="content-grid team-insights-grid" data-dashboard-section="groepen">
