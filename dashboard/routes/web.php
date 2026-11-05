@@ -3,11 +3,9 @@
 use App\Http\Controllers\ApplicationAdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
-<<<<<<< HEAD
 use App\Http\Controllers\DocentController;
-=======
 use App\Http\Controllers\StudentDashboardController;
->>>>>>> 51d3f9eea72b491d343b3a11396d3f31325262ac
+use App\Http\Controllers\TeamManagerDashboardController;
 use Illuminate\Support\Facades\Route;
 
 // Iedereen mag de startpagina bekijken. Inloggen heeft een eigen webadres.
@@ -21,6 +19,9 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
 Route::post('/dashboard/leerdoelen', [StudentDashboardController::class, 'storeGoal'])->middleware('auth')->name('student.goals.store');
 Route::post('/dashboard/reflecties', [StudentDashboardController::class, 'storeReflection'])->middleware('auth')->name('student.reflections.store');
+Route::post('/teamleider/groepen', [TeamManagerDashboardController::class, 'storeGroup'])->middleware('auth')->name('teammanager.groups.store');
+Route::post('/teamleider/groepen/{group}/leden', [TeamManagerDashboardController::class, 'storeGroupMember'])
+    ->whereNumber('group')->middleware('auth')->name('teammanager.groups.members.store');
 // Afmelden is een POST-verzoek, zodat de sessie veilig wordt beëindigd.
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth');
 

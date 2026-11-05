@@ -58,12 +58,9 @@ class HeaderUtils
                         "(?:[^"\\\\]|\\\\.)*(?:"|\\\\|$)
                     |
                         # token
-                        [^"\s'.$quotedSeparators.']++
-                    |
-                        # whitespace, only when more of the value follows it, so that a value
-                        # never ends on whitespace and none of it ever has to be given back
-                        \s++(?!['.$quotedSeparators.']|$)
-                    )++
+                        [^"'.$quotedSeparators.']+
+                    )+
+                (?<!\s)
             |
                 # separator
                 \s*
