@@ -12,8 +12,9 @@
     @vite(($roleKey ?? auth()->user()?->dashboardRoleKey()) === 'beheerder'
         ? ['resources/css/app.css', 'resources/css/dashboard.css', 'resources/css/admin-dashboard.css', 'resources/js/admin-dashboard.js']
         : ['resources/css/app.css', 'resources/css/dashboard.css'])
+    <style>@include('components.dashboard-navigation-style')</style>
 </head>
-<body class="app-body {{ ($roleKey ?? '') === 'beheerder' ? 'admin-body' : '' }}">
+<body class="app-body dashboard-navigation {{ ($roleKey ?? '') === 'beheerder' ? 'admin-body' : '' }}">
     {{-- Bepaal het menu en de rolnaam voor de ingelogde gebruiker. --}}
     @php
         $roleLabels = ['student' => 'Student · ICT', 'docent' => 'Docent', 'beheerder' => 'Applicatiebeheerder', 'teamleider' => 'Teamleider'];
@@ -40,9 +41,9 @@
             <nav class="side-nav" aria-label="Hoofdnavigatie">
                 @foreach (($menuItems[$currentRoleKey] ?? $menuItems['student']) as [$icon, $label, $target])
                     @if($currentRoleKey === 'beheerder')
-                        <a class="side-nav-button {{ $loop->first ? 'active' : '' }}" href="{{ route('dashboard') }}#{{ $target }}" data-admin-target="{{ $target }}" @if($loop->first) aria-current="page" @endif><span>{{ $icon }}</span> {{ $label }}</a>
+                        <a class="side-nav-button {{ $loop->first ? 'active' : '' }}" href="{{ route('dashboard') }}#{{ $target }}" data-admin-target="{{ $target }}" aria-label="{{ $label }}" @if($loop->first) aria-current="page" @endif><span>{{ $icon }}</span> {{ $label }}</a>
                     @else
-                        <button class="side-nav-button {{ $loop->first ? 'active' : '' }}" type="button" data-dashboard-target="{{ $target }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}"><span>{{ $icon }}</span> {{ $label }}</button>
+                        <button class="side-nav-button {{ $loop->first ? 'active' : '' }}" type="button" data-dashboard-target="{{ $target }}" aria-label="{{ $label }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}"><span>{{ $icon }}</span> {{ $label }}</button>
                     @endif
                 @endforeach
             </nav>

@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class DocentController extends Controller
@@ -88,6 +89,27 @@ class DocentController extends Controller
             ->update(['status' => 'inactief', 'einddatum' => today()->toDateString()]);
 
         return redirect()->to(route('dashboard').'#studenten')->with('docent_success', 'Student uit jouw begeleiding verwijderd. Het account en dossier zijn bewaard.');
+    }
+
+    /** Maak een echte leeruitkomst aan en wijs deze zonder voltooiing toe aan de student. */
+    public function createOutcome(Request $request, int $student): RedirectResponse
+    {
+        $this->student($request, $student);
+        $data = $request->validate([
+            'titel' => ['required', 'string', 'max:255'],
+            'omschrijving' => ['nullable', 'string', 'max:10000'],
+        ]);
+        DB::transaction(function () use ($data, $student): void {
+            $id = DB::table('leeruitkomsten')->insertGetId($data + [
+                'code' => 'LO-'.Str::upper(Str::random(12)),
+            ], 'leeruitkomsten_id');
+            DB::table('student_leeruitkomsten')->insert([
+                'student_idstudent' => $student, 'leeruitkomsten_leeruitkomsten_id' => $id,
+                'status' => 'Te doen', 'vooruitgang' => 0, 'laatste_update' => now(),
+            ]);
+        });
+
+        return $this->done('student-detail', ['student' => $student]);
     }
 
     public function storeOutcome(Request $request, int $student): RedirectResponse

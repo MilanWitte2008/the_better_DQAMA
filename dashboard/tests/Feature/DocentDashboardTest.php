@@ -25,7 +25,7 @@ class DocentDashboardTest extends TestCase
             'coach (idcoach INTEGER PRIMARY KEY, lid_idlid INTEGER)',
             'student (idstudent INTEGER PRIMARY KEY, lid_idlid INTEGER, klas TEXT, opleiding TEXT, studentnummer TEXT, startdatum TEXT)',
             'student_coach (student_idstudent INTEGER, coach_idcoach INTEGER, status TEXT, startdatum TEXT, einddatum TEXT)',
-            'leeruitkomsten (leeruitkomsten_id INTEGER PRIMARY KEY, titel TEXT, code TEXT)',
+            'leeruitkomsten (leeruitkomsten_id INTEGER PRIMARY KEY, titel TEXT, code TEXT, omschrijving TEXT)',
             'student_leeruitkomsten (id_leeruitkomsten INTEGER PRIMARY KEY AUTOINCREMENT, opmerking TEXT, student_idstudent INTEGER, leeruitkomsten_leeruitkomsten_id INTEGER, status TEXT, vooruitgang INTEGER, laatste_update TEXT)',
             'begeleidingsnotitie (id_notitie INTEGER PRIMARY KEY AUTOINCREMENT, idstudent INTEGER, idcoach INTEGER, inhoud TEXT, datum TEXT, type TEXT)',
             'gesprekken (idgesprek INTEGER PRIMARY KEY AUTOINCREMENT, student_idstudent INTEGER, datum TEXT, onderwerp TEXT, inhoud TEXT, afspraken TEXT)',
@@ -254,5 +254,22 @@ class DocentDashboardTest extends TestCase
         DB::table('coach')->where('lid_idlid', 1)->delete();
         $this->actingAs(User::findOrFail(1))->post('/docent/studenten', $this->newStudentInput())->assertForbidden();
         $this->assertDatabaseMissing('lid', ['email' => 'nieuw@example.test']);
+    }
+
+    public function test_empty_chart_can_be_activated_with_real_learning_outcomes(): void
+    {
+        DB::table('student_leeruitkomsten')->delete();
+        DB::table('leeruitkomsten')->delete();
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('Nog geen data')->assertSee('Leeruitkomst toevoegen');
+        $this->post('/docent/studenten/11/leeruitkomsten/nieuw', ['titel' => 'Zelfstandig programmeren', 'omschrijving' => 'Een werkende applicatie maken'])->assertRedirect();
+        $id = DB::table('student_leeruitkomsten')->value('id_leeruitkomsten');
+        $this->get('/dashboard')->assertOk()->assertSee('--progress: 0%', false)->assertDontSee('Nog geen data');
+        $this->put('/docent/leeruitkomsten/'.$id, ['status' => 'Behaald'])->assertRedirect();
+        $this->get('/dashboard')->assertOk()->assertSee('--progress: 100%', false);
+        $this->post('/docent/studenten/12/leeruitkomsten/nieuw', ['titel' => 'Samenwerken'])->assertRedirect();
+        $this->get('/dashboard')->assertOk()->assertSee('--progress: 50%', false);
+        $this->post('/docent/studenten/13/leeruitkomsten/nieuw', ['titel' => 'Geen toegang'])->assertForbidden();
+        $this->post('/docent/studenten/11/leeruitkomsten/nieuw', ['titel' => ''])->assertSessionHasErrors('titel');
+        $this->assertDatabaseCount('leeruitkomsten', 2);
     }
 }

@@ -37,6 +37,7 @@ Route::middleware('auth')->prefix('beheer')->name('beheer.')->group(function () 
 Route::middleware('auth')->prefix('docent')->name('docent.')->controller(DocentController::class)->group(function () {
     Route::post('/studenten', 'storeStudent')->name('students.store');
     Route::delete('/studenten/{student}', 'detachStudent')->whereNumber('student')->name('students.destroy');
+    Route::post('/studenten/{student}/leeruitkomsten/nieuw', 'createOutcome')->whereNumber('student')->name('outcomes.create');
     Route::post('/studenten/{student}/leeruitkomsten', 'storeOutcome')->whereNumber('student')->name('outcomes.store');
     Route::put('/studenten/{student}', 'updateStudent')->whereNumber('student')->name('students.update');
     Route::post('/notities', 'storeNote')->name('notes.store');

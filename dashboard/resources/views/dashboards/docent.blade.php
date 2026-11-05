@@ -19,41 +19,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Docentdashboard · Ontwikkelplatform</title>
     <style>
-        @include('dashboards.docent-style')
+        @include('dashboards.docent-style') @include('components.dashboard-navigation-style')
     </style>
 </head>
 
-<body class="docent-page">
+<body class="docent-page dashboard-navigation">
     <a class="skip" href="#inhoud">Naar inhoud</a>
     <aside class="sidebar">
-        <a class="brand" href="{{ route('dashboard') }}"><span class="brand-icon">O<span>·</span></span>ontwikkel<span
-                class="brand-light">platform</span></a>
-        <p class="nav-caption">DOCENTOMGEVING</p>
-        <nav aria-label="Hoofdnavigatie">
-            <a href="#inhoud">◈ <span>Overzicht</span></a>
-            <a href="#studenten">♙ <span>Mijn studenten</span><b>{{ $students->count() }}</b></a>
-            <a href="#gesprekken">◷ <span>Coachgesprekken</span></a>
-            <a href="#notities">▤ <span>Notities</span></a>
-            <a href="#rapportages">▥ <span>Voortgang</span></a>
-        </nav>
-        <div class="sidebar-bottom"><span
-                class="profile-avatar">{{ mb_strtoupper(mb_substr($user->voornaam, 0, 1)) }}</span>
-            <div><strong>{{ $user->voornaam }} {{ $user->achternaam }}</strong><small>Docent · begeleiding</small></div>
+        <a class="brand" href="{{ route('dashboard') }}">
+            <span class="brand-mark">IT</span>
+            <span><strong>Ontwikkelplatform</strong><small>Persoonlijke groei</small></span>
+        </a>
+        <div class="profile-chip">
+            <span
+                class="avatar">{{ mb_strtoupper(mb_substr($user->voornaam ?? '', 0, 1) . mb_substr($user->achternaam ?? '', 0, 1)) }}</span>
+            <span><strong>{{ $user->voornaam }} {{ $user->achternaam }}</strong><small>Docent</small></span>
         </div>
-        <form method="POST" action="{{ url('/logout') }}">@csrf<button class="logout" type="submit">Uitloggen
-                ↗</button></form>
+        <nav aria-label="Hoofdnavigatie">
+            <a href="#inhoud" aria-label="Overzicht">◈ <span>Overzicht</span></a>
+            <a href="#studenten" aria-label="Mijn studenten">♙ <span>Mijn
+                    studenten</span><b>{{ $students->count() }}</b></a>
+            <a href="#gesprekken" aria-label="Coachgesprekken">◷ <span>Coachgesprekken</span></a>
+            <a href="#notities" aria-label="Notities">▤ <span>Notities</span></a>
+            <a href="#rapportages" aria-label="Voortgang">▥ <span>Voortgang</span></a>
+        </nav>
+        <div class="sidebar-footer"><strong>Docentomgeving</strong><small>Persoonlijk dashboard</small></div>
     </aside>
     <div class="workspace">
-        <header class="topbar"><span>Werkruimte <span class="muted">/</span> <strong
-                    id="section-title">Overzicht</strong></span><span class="date">{{ now()->format('d.m.Y') }}</span>
+        <header class="topbar">
+            <div>
+                <h1>Goedemiddag, {{ $user->voornaam }}! <span aria-hidden="true">👋</span></h1>
+                <p>Bekijk hier jouw persoonlijke ontwikkeling en voortgang.</p>
+                <span id="section-title" class="sr-only">Overzicht</span>
+            </div>
+            <div class="topbar-actions">
+                <span
+                    class="avatar avatar-light">{{ mb_strtoupper(mb_substr($user->voornaam ?? '', 0, 1) . mb_substr($user->achternaam ?? '', 0, 1)) }}</span>
+                <form method="POST" action="{{ url('/logout') }}">@csrf<button class="logout-button"
+                        type="submit">Uitloggen</button></form>
+            </div>
         </header>
         <main id="inhoud">
             <div class="page-heading">
                 <div>
                     <p class="eyebrow">SAMEN WERKEN AAN GROEI</p>
-                    <h1>Welkom terug, {{ $user->voornaam }}<span>.</span></h1>
                     <p>Jouw studenten, hun ontwikkeling en je volgende gesprek. Op één plek.</p>
-                </div><a class="button secondary" href="{{ route('dashboard') }}">↻ Vernieuwen</a>
+                </div>
             </div>
             @if (session('docent_success'))
                 <div class="notice success save-feedback" role="status" tabindex="-1">{{ session('docent_success') }}
@@ -103,7 +114,7 @@
                     </div>
                     {{-- GET-filters delen dezelfde toegangsselectie als de detailweergave. --}}
                     @include('dashboards.docent-student-create')
-            <form class="filters" method="GET" action="{{ route('dashboard') }}#studenten">
+                    <form class="filters" method="GET" action="{{ route('dashboard') }}#studenten">
                         <label><span>Zoeken</span><input name="q" type="search" maxlength="100"
                                 value="{{ $search }}" placeholder="Naam, e-mail of studentnummer"></label>
                         <label><span>Klas</span><select name="klas">
@@ -148,8 +159,8 @@
                                             @if ($student->progress !== null)
                                                 <div class="progress-label">
                                                     <span>{{ $student->achieved }}/{{ $student->total }}
-                                                        behaald</span><b>{{ $student->progress }}%</b></div><progress
-                                                    value="{{ $student->progress }}" max="100"
+                                                        behaald</span><b>{{ $student->progress }}%</b>
+                                                </div><progress value="{{ $student->progress }}" max="100"
                                                 aria-label="Behaalde leeruitkomsten van {{ $student->voornaam }}">{{ $student->progress }}%</progress>@else<span
                                                     class="muted">Nog geen leeruitkomsten</span>
                                             @endif
@@ -189,10 +200,30 @@
                     <p class="eyebrow">ONTWIKKELING IN BEELD</p>
                     <h2>Elke stap vooruit</h2>@php($percentage = $total ? (int) round(($achieved / $total) * 100) : 0)<div class="ring"
                         style="--progress: {{ $percentage }}%">
-                        <div><strong>{{ $total ? $percentage . '%' : '—' }}</strong><span>behaald</span></div>
+                        <div><strong
+                                @if (!$total) style="font-size:16px;letter-spacing:0" @endif>{{ $total ? $percentage . '%' : 'Nog geen data' }}</strong><span>behaald</span>
+                        </div>
                     </div>
-                    <p class="center muted">{{ $achieved }} van {{ $total }} toegewezen leeruitkomsten
-                        behaald.</p>
+                    @if ($total === 0)
+                        <p class="center muted">Er zijn nog geen leeruitkomsten aan jouw studenten toegewezen. Voeg
+                            eerst een leeruitkomst toe om voortgang te meten.</p>
+                        @if ($students->isNotEmpty())
+                            <form method="GET" action="{{ route('dashboard') }}#student-detail"
+                                class="docent-form">
+                                <label for="progress-student">Kies een student<select id="progress-student"
+                                        name="student">
+                                        @foreach ($studentOptions as $id => $label)
+                                            <option value="{{ $id }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select></label>
+                                <button type="submit" class="button dark">Leeruitkomst toevoegen</button>
+                            </form>
+                        @else<p class="center muted">Voeg eerst een student toe via Mijn studenten.</p>
+                        @endif
+                    @else
+                        <p class="center muted">{{ $achieved }} van {{ $total }} toegewezen leeruitkomsten
+                            behaald.</p>
+                    @endif
                     <div class="report-row"><span><i></i>Behaald</span><strong>{{ $achieved }}</strong></div>
                     <div class="report-row"><span><i class="light"></i>Nog niet
                             behaald</span><strong>{{ $total - $achieved }}</strong></div>
@@ -249,6 +280,24 @@
                             ])
                         </details>
                     @endif
+                    <details class="edit-panel" @if (old('_form') === 'outcome-create' || $outcomes->where('student_idstudent', $selected->idstudent)->isEmpty()) open @endif>
+                        <summary>Nieuwe leeruitkomst maken</summary>
+                        <p class="footnote">Omschrijf wat de student moet leren. De status begint op Te doen. Markeer
+                            deze pas als Behaald wanneer de leeruitkomst is bereikt.</p>
+                        @include('dashboards.docent-form', [
+                            'formId' => 'outcome-create',
+                            'action' => route('docent.outcomes.create', $selected->idstudent),
+                            'method' => 'POST',
+                            'fields' => [
+                                'titel' => [
+                                    'label' => 'Titel van de leeruitkomst',
+                                    'required' => true,
+                                    'max' => 255,
+                                ],
+                                'omschrijving' => ['label' => 'Omschrijving (optioneel)', 'type' => 'textarea'],
+                            ],
+                        ])
+                    </details>
                     <div class="outcomes">
                         @forelse($outcomes->where('student_idstudent', $selected->idstudent) as $outcome)
                             <article><small>{{ $outcome->code }}</small>
