@@ -12,12 +12,12 @@
 <div class="beheer-shell">
     <aside class="beheer-sidebar" aria-label="Zijbalk">
         <a class="beheer-brand" href="{{ route('dashboard') }}">
-            <span class="brand-icon"><img src="{{ asset('icons/tabler/school.svg') }}" alt="" width="27" height="27"></span>
+            <span class="brand-icon"><img src="{{ asset('icons/tabler/layout-dashboard.svg') }}" alt="" width="27" height="27"></span>
             <span><strong>ITIG<span class="brand-dot">.</span></strong><small>Ontwikkelplatform</small></span>
         </a>
         <span class="sidebar-caption">BEHEEROMGEVING</span>
         <nav class="beheer-nav" aria-label="Hoofdnavigatie">
-            @foreach([['layout-dashboard', 'Dashboard', 'all'], ['users', 'Gebruikers', 'gebruikers'], ['shield-check', 'Rollen & toegang', 'rollen'], ['building-community', 'Scholen', 'scholen'], ['activity', 'Systeemstatus', 'systeem']] as [$icon, $label, $section])
+            @foreach([['layout-dashboard', 'Dashboard', 'all'], ['users', 'Gebruikers', 'gebruikers'], ['shield-check', 'Rollen & toegang', 'rollen'], ['activity', 'Systeemstatus', 'systeem']] as [$icon, $label, $section])
             <a href="{{ route('dashboard') }}#{{ $section }}" class="beheer-nav-link" data-admin-target="{{ $section }}" aria-label="{{ $label }}" title="{{ $label }}" @if($section === 'all') aria-current="page" @endif>
                 <img src="{{ asset('icons/tabler/'.$icon.'.svg') }}" alt="" width="20" height="20"><span>{{ $label }}</span>
                 <img class="nav-chevron" src="{{ asset('icons/tabler/chevron-right.svg') }}" alt="" width="14" height="14">
