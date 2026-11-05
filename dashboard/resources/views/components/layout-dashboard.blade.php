@@ -9,8 +9,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Ontwikkelplatform')</title>
-    {{-- Laad de stijlbestanden. De beheerder krijgt ook eigen CSS en JavaScript. --}}
-    @vite(($roleKey ?? auth()->user()?->dashboardRoleKey()) === 'beheerder' ? ['resources/css/app.css', 'resources/css/dashboard.css', 'resources/css/admin-dashboard.css', 'resources/js/admin-dashboard.js'] : ['resources/css/app.css', 'resources/css/dashboard.css'])
+    {{-- Laad de dashboardbestanden rechtstreeks uit public, ook zonder Vite-build. --}}
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v={{ filemtime(public_path('css/dashboard.css')) }}">
+    @if (($roleKey ?? auth()->user()?->dashboardRoleKey()) === 'beheerder')
+        <link rel="stylesheet" href="{{ asset('css/admin-dashboard.css') }}?v={{ filemtime(public_path('css/admin-dashboard.css')) }}">
+        <script src="{{ asset('js/admin-dashboard.js') }}?v={{ filemtime(public_path('js/admin-dashboard.js')) }}" defer></script>
+    @endif
     <style>
         @include('components.dashboard-navigation-style')
     </style>
@@ -96,7 +101,8 @@
             {{-- Bovenbalk met begroeting, zoeken, meldingen en uitloggen. --}}
             <header class="topbar" id="top">
                 <div>
-                    <h1>@yield('welcome-title', 'Goedemiddag, ' . (auth()->user()->voornaam ?? 'welkom') . '!') <span aria-hidden="true">👋</span></h1>
+                    <h1>@yield('welcome-title', 'Goedemiddag, ' . (auth()->user()->voornaam ?? 'welkom') . '!') <span
+                            aria-hidden="true">👋</span></h1>
                     <p>@yield('welcome-subtitle', 'Bekijk hier jouw persoonlijke ontwikkeling en voortgang.')</p>
                 </div>
                 <div class="topbar-actions">
@@ -130,15 +136,14 @@
                         return;
                     }
 
-                    const visibleTargets = target === 'leerdoelen' ?
-                        ['leerdoelen', 'leeruitkomsten'] :
-                        target === 'rapportages' ?
-                        ['rapportages', 'trends', 'instellingen'] :
-                        [target];
+                    const visibleTargets = target === 'leerdoelen'
+                        ? ['leerdoelen', 'leeruitkomsten']
+                        : target === 'rapportages'
+                            ? ['rapportages', 'trends', 'instellingen']
+                            : [target];
 
                     document.querySelectorAll('[data-dashboard-section]').forEach((section) => {
-                        section.hidden = target !== 'all' && !visibleTargets.includes(section.dataset
-                            .dashboardSection);
+                        section.hidden = target !== 'all' && !visibleTargets.includes(section.dataset.dashboardSection);
                     });
 
                     document.querySelectorAll('.content-grid').forEach((grid) => {

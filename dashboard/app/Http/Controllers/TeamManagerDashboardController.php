@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -32,10 +33,26 @@ class TeamManagerDashboardController extends Controller
         $selectedGroup ??= $groups->first();
 
         $students = collect();
+        $availableStudents = collect();
         $outcomeProgress = collect();
         $teamProgress = 0;
 
         if ($selectedGroup) {
+            $availableStudents = DB::table('lid as member')
+                ->join('rol', 'rol.idrol', '=', 'member.rol_idrol')
+                ->whereRaw('LOWER(rol.naam) = ?', ['student'])
+                ->where('member.status', 'actief')
+                ->whereNotExists(function ($query) use ($selectedGroup) {
+                    $query->selectRaw('1')
+                        ->from('groep_has_lid as membership')
+                        ->whereColumn('membership.idlid', 'member.idlid')
+                        ->where('membership.idgroep', $selectedGroup->idgroep);
+                })
+                ->select('member.idlid', 'member.voornaam', 'member.achternaam', 'member.email')
+                ->orderBy('member.achternaam')
+                ->orderBy('member.voornaam')
+                ->get();
+
             $progressByStudent = DB::table('leeruitkomsten_has_lid')
                 ->select('lid_idlid')
                 ->selectRaw('COUNT(*) AS total_outcomes')
@@ -70,18 +87,23 @@ class TeamManagerDashboardController extends Controller
                 ->orderBy('member.voornaam')
                 ->get();
 
-            $outcomeProgress = DB::table('groep_has_lid as membership')
+            $groupOutcomeAssignments = DB::table('groep_has_lid as membership')
                 ->join('lid as member', 'member.idlid', '=', 'membership.idlid')
                 ->join('rol', 'rol.idrol', '=', 'member.rol_idrol')
                 ->join('leeruitkomsten_has_lid as assignment', 'assignment.lid_idlid', '=', 'member.idlid')
-                ->join('leeruitkomsten', 'leeruitkomsten.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
                 ->where('membership.idgroep', $selectedGroup->idgroep)
                 ->whereRaw('LOWER(rol.naam) = ?', ['student'])
-                ->select('leeruitkomsten.titel as label')
+                ->select('assignment.leeruitkomsten_id')
                 ->selectRaw('COUNT(*) AS total')
                 ->selectRaw('SUM(CASE WHEN assignment.status = ? THEN 1 ELSE 0 END) AS completed', ['Behaald'])
-                ->groupBy('leeruitkomsten.titel')
-                ->orderBy('leeruitkomsten.titel')
+                ->groupBy('assignment.leeruitkomsten_id');
+
+            $outcomeProgress = DB::table('leeruitkomsten as outcome')
+                ->leftJoinSub($groupOutcomeAssignments, 'progress', 'progress.leeruitkomsten_id', '=', 'outcome.leeruitkomsten_id')
+                ->select('outcome.code', 'outcome.titel as label', 'outcome.omschrijving as description')
+                ->selectRaw('COALESCE(progress.total, 0) AS total')
+                ->selectRaw('COALESCE(progress.completed, 0) AS completed')
+                ->orderBy('outcome.titel')
                 ->get()
                 ->map(function ($outcome) {
                     $outcome->progress = $outcome->total > 0
@@ -104,9 +126,89 @@ class TeamManagerDashboardController extends Controller
             'groups' => $groups,
             'selectedGroup' => $selectedGroup,
             'students' => $students,
+            'availableStudents' => $availableStudents,
             'outcomeProgress' => $outcomeProgress,
             'teamProgress' => $teamProgress,
             'attentionCount' => $outcomeProgress->where('progress', '<', 60)->count(),
         ]);
+    }
+
+    public function storeGroup(Request $request): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless(
+            $user->dashboardRoleKey() === 'teamleider'
+                && strtolower((string) $user->status) === 'actief',
+            403,
+        );
+
+        $data = $request->validate([
+            'groepnaam' => ['required', 'string', 'max:45'],
+        ]);
+
+        $groupId = DB::transaction(function () use ($data, $user): int {
+            $groupId = DB::table('groep')->insertGetId([
+                'groepnaam' => $data['groepnaam'],
+                'status' => 'actief',
+            ], 'idgroep');
+
+            DB::table('groep_has_lid')->insert([
+                'idgroep' => $groupId,
+                'idlid' => $user->getKey(),
+            ]);
+
+            return (int) $groupId;
+        });
+
+        return redirect()->route('dashboard', ['groep' => $groupId])
+            ->with('success', 'De groep is aangemaakt.');
+    }
+
+    public function storeGroupMember(Request $request, int $group): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless(
+            $user->dashboardRoleKey() === 'teamleider'
+                && strtolower((string) $user->status) === 'actief',
+            403,
+        );
+
+        abort_unless(
+            DB::table('groep_has_lid')
+                ->where('idgroep', $group)
+                ->where('idlid', $user->getKey())
+                ->exists(),
+            403,
+        );
+
+        $data = $request->validate([
+            'lid_idlid' => ['required', 'integer'],
+        ]);
+
+        $isActiveStudent = DB::table('lid as member')
+            ->join('rol', 'rol.idrol', '=', 'member.rol_idrol')
+            ->where('member.idlid', $data['lid_idlid'])
+            ->where('member.status', 'actief')
+            ->whereRaw('LOWER(rol.naam) = ?', ['student'])
+            ->exists();
+
+        if (! $isActiveStudent) {
+            return back()->withErrors([
+                'lid_idlid' => 'Kies een actief lid met de rol Student.',
+            ])->withInput();
+        }
+
+        $inserted = DB::table('groep_has_lid')->insertOrIgnore([
+            'idgroep' => $group,
+            'idlid' => $data['lid_idlid'],
+        ]);
+
+        $message = $inserted > 0
+            ? 'Het lid is aan de groep toegevoegd.'
+            : 'Dit lid staat al in deze groep.';
+
+        return redirect()->route('dashboard', ['groep' => $group])->with('success', $message);
     }
 }

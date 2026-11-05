@@ -24,11 +24,46 @@
             <button class="primary-button team-filter-button" type="submit" @disabled($groups->isEmpty())>Toon groep</button>
         </form>
 
+        @if (session('success'))
+            <p class="info-strip" role="status">{{ session('success') }}</p>
+        @endif
+
+        <form class="team-action-form" method="POST" action="{{ route('teammanager.groups.store') }}">
+            @csrf
+            <label for="new-group-name">Nieuwe groep</label>
+            <input id="new-group-name" name="groepnaam" type="text" maxlength="45" required value="{{ old('groepnaam') }}" placeholder="Bijvoorbeeld: ICT 2A">
+            @error('groepnaam')
+                <small class="form-error">{{ $message }}</small>
+            @enderror
+            <button class="primary-button" type="submit">Groep aanmaken</button>
+        </form>
+
         @if ($selectedGroup)
             <p class="team-selection-summary">
                 {{ $selectedGroup->groepnaam ?: 'Groep ' . $selectedGroup->idgroep }} ·
                 {{ $students->count() }} {{ $students->count() === 1 ? 'student' : 'studenten' }}
             </p>
+            <form class="team-action-form" method="POST" action="{{ route('teammanager.groups.members.store', $selectedGroup->idgroep) }}">
+                @csrf
+                <label for="group-member">Student toevoegen aan deze groep</label>
+                <select id="group-member" name="lid_idlid" required @disabled($availableStudents->isEmpty())>
+                    @if ($availableStudents->isNotEmpty())
+                        <option value="" disabled @selected(! old('lid_idlid'))>Kies een student</option>
+                    @endif
+                    @forelse ($availableStudents as $student)
+                        <option value="{{ $student->idlid }}" @selected(old('lid_idlid') == $student->idlid)>
+                            {{ trim(($student->voornaam ?? '') . ' ' . ($student->achternaam ?? '')) ?: 'Naam ontbreekt' }}
+                            · {{ $student->email }}
+                        </option>
+                    @empty
+                        <option value="">Geen actieve studenten meer beschikbaar</option>
+                    @endforelse
+                </select>
+                @error('lid_idlid')
+                    <small class="form-error">{{ $message }}</small>
+                @enderror
+                <button class="primary-button" type="submit" @disabled($availableStudents->isEmpty())>Lid toevoegen</button>
+            </form>
             <div class="table-scroll">
                 <table class="data-table team-student-table" data-team-student-table>
                     <thead>
@@ -73,7 +108,18 @@
         <h3>Voortgang per leeruitkomst (groep)</h3>
         @forelse ($outcomeProgress as $outcome)
             <div class="team-outcome-row">
-                <div><span>{{ $outcome->label ?: 'Leeruitkomst zonder titel' }}</span><strong>{{ $outcome->progress }}%</strong></div>
+                <div>
+                    <span>
+                        <strong class="team-outcome-title">{{ $outcome->label ?: 'Leeruitkomst zonder titel' }}</strong>
+                        @if ($outcome->code)
+                            <small class="team-outcome-code">{{ $outcome->code }}</small>
+                        @endif
+                    </span>
+                    <strong>{{ $outcome->progress }}%</strong>
+                </div>
+                @if ($outcome->description)
+                    <p class="team-outcome-description">{{ $outcome->description }}</p>
+                @endif
                 <div class="team-outcome-track" role="img" aria-label="{{ $outcome->label }}: {{ $outcome->progress }} procent">
                     <span style="width: {{ $outcome->progress }}%"></span>
                 </div>

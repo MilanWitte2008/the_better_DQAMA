@@ -13,17 +13,39 @@ namespace Symfony\Component\HttpKernel\Bundle;
 
 use Symfony\Component\Console\Application;
 use Symfony\Component\DependencyInjection\Container;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
-use Symfony\Component\DependencyInjection\Kernel\AbstractBundle as BaseAbstractBundle;
 
 /**
  * An implementation of BundleInterface that adds a few conventions for DependencyInjection extensions.
  *
  * @author Fabien Potencier <fabien@symfony.com>
  */
-abstract class Bundle extends BaseAbstractBundle implements BundleInterface
+abstract class Bundle implements BundleInterface
 {
+    protected string $name;
+    protected ExtensionInterface|false|null $extension = null;
+    protected string $path;
+    protected ?ContainerInterface $container;
+
     private string $namespace;
+
+    public function boot(): void
+    {
+    }
+
+    public function shutdown(): void
+    {
+    }
+
+    /**
+     * This method can be overridden to register compilation passes,
+     * other extensions, ...
+     */
+    public function build(ContainerBuilder $container): void
+    {
+    }
 
     /**
      * Returns the bundle's container extension.
@@ -59,20 +81,37 @@ abstract class Bundle extends BaseAbstractBundle implements BundleInterface
 
     public function getNamespace(): string
     {
-        return $this->namespace ??= false === ($pos = strrpos(static::class, '\\')) ? '' : substr(static::class, 0, $pos);
+        if (!isset($this->namespace)) {
+            $this->parseClassName();
+        }
+
+        return $this->namespace;
     }
 
     public function getPath(): string
     {
-        return $this->path ??= \dirname((new \ReflectionClass($this))->getFileName());
+        if (!isset($this->path)) {
+            $reflected = new \ReflectionObject($this);
+            $this->path = \dirname($reflected->getFileName());
+        }
+
+        return $this->path;
     }
 
     /**
-     * @deprecated since Symfony 8.1, use the #[AsCommand] attribute or the "console.command" service tag instead of overriding this method
+     * Returns the bundle name (the class short name).
      */
+    final public function getName(): string
+    {
+        if (!isset($this->name)) {
+            $this->parseClassName();
+        }
+
+        return $this->name;
+    }
+
     public function registerCommands(Application $application): void
     {
-        trigger_deprecation('symfony/http-kernel', '8.1', 'The "%s::registerCommands()" method is deprecated, use the #[AsCommand] attribute or the "console.command" service tag instead of overriding this method', self::class);
     }
 
     /**
@@ -91,5 +130,17 @@ abstract class Bundle extends BaseAbstractBundle implements BundleInterface
     protected function createContainerExtension(): ?ExtensionInterface
     {
         return class_exists($class = $this->getContainerExtensionClass()) ? new $class() : null;
+    }
+
+    private function parseClassName(): void
+    {
+        $pos = strrpos(static::class, '\\');
+        $this->namespace = false === $pos ? '' : substr(static::class, 0, $pos);
+        $this->name ??= false === $pos ? static::class : substr(static::class, $pos + 1);
+    }
+
+    public function setContainer(?ContainerInterface $container): void
+    {
+        $this->container = $container;
     }
 }

@@ -1169,6 +1169,37 @@ body {
         Helvetica,
         sans-serif;
 }
+.team-action-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 8px 12px;
+    margin-top: 12px;
+    padding: 14px;
+    border: 1px solid #d6e8f2;
+    border-radius: 8px;
+    background: #fff;
+}
+.team-action-form label {
+    grid-column: 1 / -1;
+    color: #214964;
+    font-size: 12px;
+    font-weight: 700;
+}
+.team-action-form input,
+.team-action-form select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid #d3e4ee;
+    border-radius: 6px;
+    background: #fff;
+    color: #123b5f;
+    font: 13px Arial, Helvetica, sans-serif;
+}
+.team-action-form .form-error {
+    grid-column: 1 / -1;
+}
 .team-selection-summary {
     margin: 13px 0 8px;
     color: #7891a4;
@@ -1230,8 +1261,22 @@ body {
     gap: 12px;
     margin-bottom: 6px;
 }
+.team-outcome-row > div:first-child > span {
+    display: grid;
+    gap: 3px;
+}
+.team-outcome-code {
+    color: #71889a;
+    font-size: 10px;
+}
 .team-outcome-row strong {
     color: #123b5f;
+}
+.team-outcome-description {
+    margin: 0 0 8px;
+    color: #71889a;
+    font-size: 11px;
+    line-height: 1.5;
 }
 .team-outcome-track {
     height: 7px;
@@ -1410,6 +1455,9 @@ body {
 }
 @media (max-width: 720px) {
     .team-filters {
+        grid-template-columns: 1fr;
+    }
+    .team-action-form {
         grid-template-columns: 1fr;
     }
     .team-student-table {
