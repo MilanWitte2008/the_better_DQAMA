@@ -113,7 +113,6 @@
                         </div><span class="live">Uit de database</span>
                     </div>
                     {{-- GET-filters delen dezelfde toegangsselectie als de detailweergave. --}}
-                    @include('dashboards.docent-student-create')
                     <form class="filters" method="GET" action="{{ route('dashboard') }}#studenten">
                         <label><span>Zoeken</span><input name="q" type="search" maxlength="100"
                                 value="{{ $search }}" placeholder="Naam, e-mail of studentnummer"></label>
@@ -141,7 +140,7 @@
                                     <th>Student</th>
                                     <th>Voortgang</th>
                                     <th>Laatste update</th>
-                                    <th>Acties</th>
+                                    <th><span class="sr-only">Details</span></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -169,15 +168,9 @@
                                                 class="pill {{ $student->attention ? 'amber' : '' }}">{{ $student->attention ? 'Aandacht nodig' : 'Recent bijgewerkt' }}</span><small>{{ $dateLabel($student->lastUpdate) }}</small>
                                         </td>
                                         <td>
-                                            <div class="student-actions"><a class="button secondary"
-                                                    href="{{ route('dashboard', array_merge(request()->only(['q', 'klas', 'filter']), ['student' => $student->idstudent])) }}#student-detail"
-                                                    aria-label="Bewerk {{ $student->voornaam }} {{ $student->achternaam }}">Bewerken</a>
-                                                <form method="POST"
-                                                    action="{{ route('docent.students.destroy', $student->idstudent) }}"
-                                                    data-confirm="Deze student uit jouw begeleiding verwijderen? Het account en dossier blijven bewaard.">
-                                                    @csrf @method('DELETE')<button class="danger"
-                                                        type="submit">Verwijderen</button></form>
-                                            </div>
+                                            <a class="detail-link"
+                                                href="{{ route('dashboard', array_merge(request()->only(['q', 'klas', 'filter']), ['student' => $student->idstudent])) }}#student-detail"
+                                                aria-label="Bekijk {{ $student->voornaam }} {{ $student->achternaam }}">Bekijk ↗</a>
                                         </td>
                                     </tr>
                                 @empty<tr>

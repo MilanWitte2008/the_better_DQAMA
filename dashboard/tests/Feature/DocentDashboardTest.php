@@ -180,10 +180,10 @@ class DocentDashboardTest extends TestCase
             ->get('/dashboard')->assertOk()->assertSee('role="alert"', false)->assertSee('Vul een notitie in.');
     }
 
-    public function test_student_actions_are_visible_and_edit_form_is_open(): void
+    public function test_student_list_uses_compact_view_links(): void
     {
         $response = $this->actingAs(User::findOrFail(1))->get('/dashboard?student=11');
-        $response->assertOk()->assertSee('Bewerken')->assertSee('Verwijderen')->assertSee('class="edit-panel" open', false);
+        $response->assertOk()->assertSee('Bekijk ↗')->assertDontSee('Student toevoegen')->assertDontSee('class="student-actions"', false)->assertDontSee('docent/studenten/11" data-confirm', false);
     }
 
     public function test_removing_student_keeps_account_and_other_coach_assignment(): void
@@ -225,7 +225,7 @@ class DocentDashboardTest extends TestCase
 
     public function test_docent_can_create_student_account_profile_and_assignment(): void
     {
-        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('Student toevoegen');
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertDontSee('Student toevoegen');
         $response = $this->post('/docent/studenten', $this->newStudentInput(['rol_idrol' => 1]));
         $response->assertRedirect();
         $member = User::where('email', 'nieuw@example.test')->firstOrFail();

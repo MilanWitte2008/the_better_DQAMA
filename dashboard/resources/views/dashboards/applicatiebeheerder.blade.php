@@ -160,9 +160,10 @@
                             src="{{ asset('icons/tabler/users.svg') }}" alt="" width="20"
                             height="20"></span><span><strong>Nieuwe gebruiker</strong><small>Geef iemand
                             toegang</small></span><img src="{{ asset('icons/tabler/chevron-right.svg') }}" alt=""
-                        width="16" height="16"></a><a href="#systeem" class="shortcut"><span class="shortcut-icon purple"><img
-                            src="{{ asset('icons/tabler/activity.svg') }}" alt="" width="20"
-                            height="20"></span><span><strong>Omgevingsstatus</strong><small>Bekijk de laatste
+                        width="16" height="16"></a><a href="#systeem" class="shortcut"><span
+                        class="shortcut-icon purple"><img src="{{ asset('icons/tabler/activity.svg') }}" alt=""
+                            width="20" height="20"></span><span><strong>Omgevingsstatus</strong><small>Bekijk de
+                            laatste
                             controle</small></span><img src="{{ asset('icons/tabler/chevron-right.svg') }}"
                         alt="" width="16" height="16"></a>
             </section>
@@ -266,10 +267,11 @@
                 <div>
                     @if ($members->previousPageUrl())
                         <a class="admin-edit" href="{{ $members->previousPageUrl() }}">← Vorige</a>
-                        @endif <span>Pagina {{ $members->currentPage() }} / {{ $members->lastPage() }}</span>
-                        @if ($members->nextPageUrl())
-                            <a class="admin-edit" href="{{ $members->nextPageUrl() }}">Volgende →</a>
-                        @endif
+                    @endif <span>Pagina {{ $members->currentPage() }} /
+                        {{ $members->lastPage() }}</span>
+                    @if ($members->nextPageUrl())
+                        <a class="admin-edit" href="{{ $members->nextPageUrl() }}">Volgende →</a>
+                    @endif
                 </div>
             </div>
         </section>
@@ -310,4 +312,3 @@
         </section>
     </div>
 @endsection
-
