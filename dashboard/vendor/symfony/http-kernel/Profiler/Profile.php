@@ -32,7 +32,6 @@ class Profile
     private ?int $statusCode = null;
     private ?self $parent = null;
     private ?string $virtualType = null;
-    private bool $hasErrors = false;
 
     /**
      * @var Profile[]
@@ -156,16 +155,6 @@ class Profile
         return $this->virtualType;
     }
 
-    public function hasErrors(): bool
-    {
-        return $this->hasErrors;
-    }
-
-    public function setHasErrors(bool $hasErrors): void
-    {
-        $this->hasErrors = $hasErrors;
-    }
-
     /**
      * Finds children profilers.
      *
@@ -272,7 +261,6 @@ class Profile
             'time' => $this->time,
             'statusCode' => $this->statusCode,
             'virtualType' => $this->virtualType,
-            'hasErrors' => $this->hasErrors,
         ];
     }
 }

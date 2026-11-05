@@ -12,6 +12,7 @@
 namespace Symfony\Component\Routing\Loader;
 
 use Symfony\Component\Config\Loader\FileLoader;
+use Symfony\Component\Config\Loader\LoaderResolver;
 use Symfony\Component\Config\Resource\FileResource;
 use Symfony\Component\Routing\Exception\InvalidArgumentException;
 use Symfony\Component\Routing\Loader\Configurator\Routes;
@@ -30,8 +31,6 @@ use Symfony\Component\Routing\RouteCollection;
  */
 class PhpFileLoader extends FileLoader
 {
-    use ContentLoaderTrait;
-
     /**
      * Loads a PHP file.
      */
@@ -59,7 +58,9 @@ class PhpFileLoader extends FileLoader
             $collection = $this->callConfigurator($result, $path, $file);
         } elseif (\is_array($result)) {
             $collection = new RouteCollection();
-            $this->loadContent($collection, $result, $path, $file);
+            $loader = new YamlFileLoader($this->locator, $this->env);
+            $loader->setResolver($this->resolver ?? new LoaderResolver([$this]));
+            (new \ReflectionMethod(YamlFileLoader::class, 'loadContent'))->invoke($loader, $collection, $result, $path, $file);
         } elseif (!($collection = $result) instanceof RouteCollection) {
             throw new InvalidArgumentException(\sprintf('The return value in config file "%s" is expected to be a RouteCollection, an array or a configurator callable, but got "%s".', $path, get_debug_type($result)));
         }
@@ -74,9 +75,6 @@ class PhpFileLoader extends FileLoader
         return \is_string($resource) && 'php' === pathinfo($resource, \PATHINFO_EXTENSION) && (!$type || 'php' === $type);
     }
 
-    /**
-     * @param-immediately-invoked-callable $callback
-     */
     protected function callConfigurator(callable $callback, string $path, string $file): RouteCollection
     {
         $collection = new RouteCollection();

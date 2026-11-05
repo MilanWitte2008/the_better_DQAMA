@@ -8,10 +8,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Ontwikkelplatform')</title>
-    {{-- Laad de stijlbestanden. De beheerder krijgt ook eigen CSS en JavaScript. --}}
-    @vite(($roleKey ?? auth()->user()?->dashboardRoleKey()) === 'beheerder'
-        ? ['resources/css/app.css', 'resources/css/dashboard.css', 'resources/css/admin-dashboard.css', 'resources/js/admin-dashboard.js']
-        : ['resources/css/app.css', 'resources/css/dashboard.css'])
+    {{-- Laad de dashboardstijlen rechtstreeks uit public. --}}
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
+    @if (($roleKey ?? auth()->user()?->dashboardRoleKey()) === 'beheerder')
+        <link rel="stylesheet" href="{{ asset('css/admin-dashboard.css') }}">
+        <script src="{{ asset('js/admin-dashboard.js') }}" defer></script>
+    @endif
 </head>
 <body class="app-body {{ ($roleKey ?? '') === 'beheerder' ? 'admin-body' : '' }}">
     {{-- Bepaal het menu en de rolnaam voor de ingelogde gebruiker. --}}

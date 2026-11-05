@@ -39,8 +39,8 @@
         <meta property="og:type" content="website">
         <meta property="og:locale" content="nl_NL">
         <title>DQAMA — Ruimte om te groeien</title>
-        {{-- Laad de CSS voor het uiterlijk en JavaScript voor de knoppen en tabs. --}}
-        @vite(['resources/css/landing.css', 'resources/js/landing.js'])
+        {{-- Laad de landingsbestanden rechtstreeks uit public, ook zonder Vite-build. --}}
+        <link rel="stylesheet" href="{{ asset('css/landing.css') }}">
     </head>
     <body class="landing-body">
         <a class="lp-skip" href="#inhoud">Direct naar inhoud</a>
@@ -338,5 +338,6 @@
                 </div>
             </div>
         </footer>
+        <script src="{{ asset('js/landing.js') }}" defer></script>
     </body>
 </html>

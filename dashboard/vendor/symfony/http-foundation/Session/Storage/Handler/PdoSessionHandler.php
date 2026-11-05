@@ -186,8 +186,6 @@ class PdoSessionHandler extends AbstractSessionHandler
 
     /**
      * Adds the Table to the Schema if it doesn't exist.
-     *
-     * @param-immediately-invoked-callable $isSameDatabase
      */
     public function configureSchema(Schema $schema, ?\Closure $isSameDatabase = null): Schema
     {

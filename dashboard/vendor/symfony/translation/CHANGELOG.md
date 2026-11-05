@@ -1,14 +1,6 @@
 CHANGELOG
 =========
 
-8.1
----
-
- * Add support for XLIFF 2.1 and 2.2
- * Add support for XLIFF 2.2 PGS (Plural, Gender, and Select Module)
- * Add `LocaleFallbackProvider`
- * Always set `LIBXML_NONET` when loading XML in `XliffLintCommand` and `XliffUtils`, and when loading HTML in `PseudoLocalizationTranslator`
-
 8.0
 ---
 

@@ -22,9 +22,9 @@
         ->get();
 
     // Haal de fases en leeruitkomsten op die aan deze student gekoppeld zijn.
-    $phaseRows = \Illuminate\Support\Facades\DB::table('fase_has_lid as assignment')
-        ->join('fase', 'fase.idfase', '=', 'assignment.fase_idfase')
-        ->leftJoin('leeruitkomsten', 'leeruitkomsten.fase_idfase1', '=', 'fase.idfase')
+    $phaseRows = \Illuminate\Support\Facades\DB::table('leeruitkomsten_has_lid as assignment')
+        ->join('leeruitkomsten', 'leeruitkomsten.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
+        ->join('fase', 'fase.idfase', '=', 'leeruitkomsten.fase_idfase1')
         ->where('assignment.lid_idlid', $memberId)
         ->select([
             'fase.idfase',
@@ -84,7 +84,7 @@
 
     // Haal de vijf meest recente reflecties van deze student op.
     $reflections = \Illuminate\Support\Facades\DB::table('reflectie')
-        ->where('fase_has_lid_lid_idlid', $memberId)
+        ->where('lid_idlid', $memberId)
         ->orderByDesc('datum')
         ->orderByDesc('idreflectie')
         ->limit(5)
