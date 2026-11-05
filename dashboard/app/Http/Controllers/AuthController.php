@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    /**
+     * Controleer de accountstatus en het wachtwoord, werk oude wachtwoorden bij en start de sessie.
+     */
     public function login(Request $request)
     {
         // Controleer of het e-mailadres en wachtwoord zijn ingevuld en geldig zijn.
@@ -49,6 +52,9 @@ class AuthController extends Controller
         return redirect()->intended('/dashboard');
     }
 
+    /**
+     * Beëindig de aanmelding en vernieuw de sessiebeveiliging.
+     */
     public function logout(Request $request)
     {
         // Meld de gebruiker af.
