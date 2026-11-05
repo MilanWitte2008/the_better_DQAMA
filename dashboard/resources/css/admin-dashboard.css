@@ -43,6 +43,7 @@
     outline: 3px solid #eab65d;
     outline-offset: 4px;
 }
+/* Verberg tekst visueel, maar houd labels en tabelbijschriften beschikbaar voor schermlezers. */
 .beheer-body .sr-only {
     position: absolute;
     width: 1px;
@@ -67,6 +68,7 @@
 .skip-link:focus {
     top: 20px;
 }
+/* Hoofdindeling met de navigatie naast de inhoud van het dashboard. */
 .beheer-shell {
     background: #edf3fa;
     border: 1px solid #e5eff8;
@@ -379,6 +381,7 @@
     background: #115c9f;
     box-shadow: 0 5px 15px #13559225;
 }
+/* Plaats de kerncijfers in drie even brede kolommen. */
 .metric-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -467,6 +470,7 @@
     width: 48px;
     height: 5px;
 }
+/* Geef voortgangsbalken een consistente stijl; browsers gebruiken hiervoor verschillende pseudo-elementen. */
 progress {
     display: block;
     appearance: none;
@@ -496,6 +500,7 @@ progress::-moz-progress-bar {
 .metric-card progress::-webkit-progress-value {
     background: #32a284;
 }
+/* Geef de registratiegrafiek meer ruimte dan de verdeling per rol. */
 .overview-charts {
     display: grid;
     grid-template-columns: minmax(0, 1.85fr) minmax(270px, 1fr);
@@ -600,6 +605,7 @@ progress::-moz-progress-bar {
     background: #2476bd;
     border-radius: 50%;
 }
+/* De vaste hoogte bepaalt de tekenruimte; de tooltip wordt binnen deze container geplaatst. */
 .growth-canvas-wrap {
     height: 211px;
     position: relative;
@@ -670,6 +676,7 @@ progress::-moz-progress-bar {
     height: 100%;
     display: block;
 }
+/* Plaats het totaal boven het midden van de grafiek zonder muisinteractie te blokkeren. */
 .donut-center {
     position: absolute;
     inset: 0;
@@ -883,6 +890,7 @@ progress::-moz-progress-bar {
     border-radius: 50%;
     background: #2aaf84;
 }
+/* Laat zoekvelden en filters doorlopen naar een nieuwe regel wanneer de ruimte beperkt is. */
 .admin-filters {
     display: flex;
     align-items: end;
@@ -931,6 +939,7 @@ progress::-moz-progress-bar {
     color: #246aab;
     font-size: 12px;
 }
+/* Laat brede tabellen binnen hun container horizontaal scrollen. */
 .table-scroll {
     overflow-x: auto;
 }
@@ -1157,6 +1166,7 @@ progress::-moz-progress-bar {
 .admin-form-page .admin-panel-heading h2 {
     font-size: 24px;
 }
+/* Verdeel de velden van de gebruikersformulieren over twee kolommen. */
 .admin-form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1227,6 +1237,7 @@ progress::-moz-progress-bar {
     font-size: 10px;
     color: #8da4b9;
 }
+/* Gebruik extra ruimte op grote schermen voor de navigatie en grafieken. */
 @media (min-width: 1550px) {
     .beheer-sidebar {
         width: 245px;
@@ -1244,6 +1255,7 @@ progress::-moz-progress-bar {
         height: 185px;
     }
 }
+/* Verklein tussenruimtes en toon rolkaarten in twee kolommen op smallere schermen. */
 @media (max-width: 1200px) {
     .beheer-sidebar {
         width: 204px;
@@ -1290,6 +1302,7 @@ progress::-moz-progress-bar {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+/* Maak van de zijbalk een compacte navigatie met pictogrammen. */
 @media (max-width: 1000px) {
     .beheer-sidebar {
         width: 74px;
@@ -1346,6 +1359,7 @@ progress::-moz-progress-bar {
         min-width: 160px;
     }
 }
+/* Zet de navigatie bovenaan en stapel de inhoud voor mobiele schermen. */
 @media (max-width: 720px) {
     .beheer-body {
         padding: 10px;
@@ -1525,6 +1539,7 @@ progress::-moz-progress-bar {
         font-size: 8px;
     }
 }
+/* Respecteer de systeemvoorkeur om beweging en overgangen te beperken. */
 @media (prefers-reduced-motion: reduce) {
     .beheer-body * {
         transition: none !important;
