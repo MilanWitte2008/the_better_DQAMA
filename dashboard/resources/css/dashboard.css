@@ -1220,6 +1220,19 @@ body {
 .team-student-table tbody th {
     height: 52px;
 }
+.team-remove-button {
+    min-height: 34px;
+    padding: 0 10px;
+    border: 1px solid #e6b8bc;
+    border-radius: 6px;
+    background: #fff;
+    color: #a72a39;
+    font: 12px Arial, Helvetica, sans-serif;
+    cursor: pointer;
+}
+.team-remove-button:hover {
+    background: #fff2f3;
+}
 .team-student-progress {
     display: block;
     margin-bottom: 5px;

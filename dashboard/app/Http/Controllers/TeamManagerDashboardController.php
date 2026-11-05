@@ -34,6 +34,8 @@ class TeamManagerDashboardController extends Controller
 
         $students = collect();
         $availableStudents = collect();
+        $availableTeachers = collect();
+        $groupTeachers = collect();
         $outcomeProgress = collect();
         $teamProgress = 0;
 
@@ -49,6 +51,32 @@ class TeamManagerDashboardController extends Controller
                         ->where('membership.idgroep', $selectedGroup->idgroep);
                 })
                 ->select('member.idlid', 'member.voornaam', 'member.achternaam', 'member.email')
+                ->orderBy('member.achternaam')
+                ->orderBy('member.voornaam')
+                ->get();
+
+            $availableTeachers = DB::table('lid as member')
+                ->join('rol', 'rol.idrol', '=', 'member.rol_idrol')
+                ->whereRaw('LOWER(rol.naam) IN (?, ?)', ['docent', 'coach'])
+                ->where('member.status', 'actief')
+                ->whereNotExists(function ($query) use ($selectedGroup) {
+                    $query->selectRaw('1')
+                        ->from('groep_has_lid as membership')
+                        ->whereColumn('membership.idlid', 'member.idlid')
+                        ->where('membership.idgroep', $selectedGroup->idgroep);
+                })
+                ->select('member.idlid', 'member.voornaam', 'member.achternaam', 'member.email', 'rol.naam as rolnaam')
+                ->orderBy('member.achternaam')
+                ->orderBy('member.voornaam')
+                ->get();
+
+            $groupTeachers = DB::table('groep_has_lid as membership')
+                ->join('lid as member', 'member.idlid', '=', 'membership.idlid')
+                ->join('rol', 'rol.idrol', '=', 'member.rol_idrol')
+                ->where('membership.idgroep', $selectedGroup->idgroep)
+                ->whereRaw('LOWER(rol.naam) IN (?, ?)', ['docent', 'coach'])
+                ->select('member.idlid', 'rol.naam as rolnaam')
+                ->selectRaw("TRIM(CONCAT(COALESCE(member.voornaam, ''), ' ', COALESCE(member.achternaam, ''))) AS naam")
                 ->orderBy('member.achternaam')
                 ->orderBy('member.voornaam')
                 ->get();
@@ -127,6 +155,12 @@ class TeamManagerDashboardController extends Controller
             'selectedGroup' => $selectedGroup,
             'students' => $students,
             'availableStudents' => $availableStudents,
+            'availableTeachers' => $availableTeachers,
+            'groupMembers' => $students->map(function ($student) {
+                $student->rolnaam = 'Student';
+
+                return $student;
+            })->concat($groupTeachers)->sortBy(fn ($member) => mb_strtolower($member->naam))->values(),
             'outcomeProgress' => $outcomeProgress,
             'teamProgress' => $teamProgress,
             'attentionCount' => $outcomeProgress->where('progress', '<', 60)->count(),
@@ -187,16 +221,16 @@ class TeamManagerDashboardController extends Controller
             'lid_idlid' => ['required', 'integer'],
         ]);
 
-        $isActiveStudent = DB::table('lid as member')
+        $isActiveGroupMember = DB::table('lid as member')
             ->join('rol', 'rol.idrol', '=', 'member.rol_idrol')
             ->where('member.idlid', $data['lid_idlid'])
             ->where('member.status', 'actief')
-            ->whereRaw('LOWER(rol.naam) = ?', ['student'])
+            ->whereRaw('LOWER(rol.naam) IN (?, ?, ?)', ['student', 'docent', 'coach'])
             ->exists();
 
-        if (! $isActiveStudent) {
+        if (! $isActiveGroupMember) {
             return back()->withErrors([
-                'lid_idlid' => 'Kies een actief lid met de rol Student.',
+                'lid_idlid' => 'Kies een actief lid met de rol Student, Docent of Coach.',
             ])->withInput();
         }
 
@@ -210,5 +244,47 @@ class TeamManagerDashboardController extends Controller
             : 'Dit lid staat al in deze groep.';
 
         return redirect()->route('dashboard', ['groep' => $group])->with('success', $message);
+    }
+
+    public function destroyGroupMember(Request $request, int $group, int $member): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless(
+            $user->dashboardRoleKey() === 'teamleider'
+                && strtolower((string) $user->status) === 'actief',
+            403,
+        );
+
+        abort_unless(
+            DB::table('groep_has_lid')
+                ->where('idgroep', $group)
+                ->where('idlid', $user->getKey())
+                ->exists(),
+            403,
+        );
+
+        abort_unless(
+            DB::table('groep_has_lid')
+                ->where('idgroep', $group)
+                ->where('idlid', $member)
+                ->exists(),
+            404,
+        );
+
+        $isRemovableMember = DB::table('lid as member')
+            ->join('rol', 'rol.idrol', '=', 'member.rol_idrol')
+            ->where('member.idlid', $member)
+            ->whereRaw('LOWER(rol.naam) IN (?, ?, ?)', ['student', 'docent', 'coach'])
+            ->exists();
+        abort_unless($isRemovableMember, 403);
+
+        DB::table('groep_has_lid')
+            ->where('idgroep', $group)
+            ->where('idlid', $member)
+            ->delete();
+
+        return redirect()->route('dashboard', ['groep' => $group])
+            ->with('success', 'Het groepslid is uit deze groep verwijderd. Het account en de gegevens zijn behouden.');
     }
 }
