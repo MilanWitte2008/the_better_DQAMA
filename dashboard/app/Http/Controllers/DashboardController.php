@@ -41,6 +41,11 @@ class DashboardController extends Controller
         }
 
         // Het beheerdersoverzicht haalt zelf filters en statistieken op.
+        $user = Auth::user()->load('rol');
+        $roleKey = $user->dashboardRoleKey();
+
+        abort_unless($roleKey && strtolower((string) $user->status) === 'actief', 403, 'Je account heeft geen geldige dashboardrol.');
+
         if ($roleKey === 'beheerder') {
             return app(ApplicationAdminController::class)->index($request);
         }
