@@ -40,7 +40,7 @@
         <meta property="og:locale" content="nl_NL">
         <title>DQAMA — Ruimte om te groeien</title>
         {{-- Laad de landingsbestanden rechtstreeks uit public, ook zonder Vite-build. --}}
-        <link rel="stylesheet" href="{{ asset('css/landing.css') }}">
+        <link rel="stylesheet" href="{{ asset('css/landing.css') }}?v={{ filemtime(public_path('css/landing.css')) }}">
     </head>
     <body class="landing-body">
         <a class="lp-skip" href="#inhoud">Direct naar inhoud</a>
@@ -338,7 +338,7 @@
                 </div>
             </div>
         </footer>
-        <script src="{{ asset('js/landing.js') }}" defer></script>
+        <script src="{{ asset('js/landing.js') }}?v={{ filemtime(public_path('js/landing.js')) }}" defer></script>
     </body>
 </html>
 
