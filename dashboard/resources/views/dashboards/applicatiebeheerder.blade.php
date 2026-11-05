@@ -1,6 +1,7 @@
 @extends('components.layout-dashboard')
 @section('title', 'Dashboard · ITIG Applicatiebeheer')
 @section('content')
+    {{-- Maandnamen en kleuren worden gebruikt voor de grafiekgegevens en de rollenlegenda. --}}
     @php
         $monthNames = ['Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
         $chartColors = ['#155c9e', '#58afe0', '#f0ae72', '#858ad3', '#64bec5', '#9cb2cd'];
@@ -12,6 +13,7 @@
                 <p>Welkom terug, {{ auth()->user()->voornaam }}. Dit is jouw overzicht voor vandaag.</p>
             </div>
         </div>
+        {{-- Toon bevestigingen en validatiefouten na een beheeractie. --}}
         @if (session('success'))
             <div class="admin-alert" role="status"><img src="{{ asset('icons/tabler/check.svg') }}" alt=""
                     width="18" height="18">{{ session('success') }}</div>
@@ -26,6 +28,7 @@
             </div>
         @endif
 
+        {{-- Kerncijfers uit de controller geven een overzicht van accounts en rollen. --}}
         <section class="metric-grid" data-dashboard-section="overzicht" aria-label="Platformoverzicht">
             <article class="metric-card metric-mint">
                 <div class="metric-label"><span>Gebruikers</span><img src="{{ asset('icons/tabler/users.svg') }}"
@@ -61,6 +64,7 @@
                         <h2 id="growth-title">Nieuwe gebruikers</h2>
                     </div>
                     <form method="GET" action="{{ route('dashboard') }}" class="year-picker">
+                        {{-- Behoud de gebruikersfilters wanneer alleen het grafiekjaar verandert. --}}
                         @foreach (collect($filters)->except('year') as $key => $value)
                             @if ($value !== null)
                                 <input type="hidden" name="{{ $key }}" value="{{ $value }}">
@@ -68,6 +72,7 @@
                         @endforeach
                         <label class="sr-only" for="chart-year">Jaar van de grafiek</label>
                         <select id="chart-year" name="year">
+                            {{-- Voeg het geselecteerde jaar toe zodat ook een ouder gekozen jaar beschikbaar blijft. --}}
                             @foreach (collect(range(now()->year, max(2000, now()->year - 5)))->push($analytics['year'])->unique()->sortDesc() as $year)
                                 <option value="{{ $year }}" @selected($analytics['year'] === $year)>{{ $year }}
                                 </option>
@@ -85,6 +90,7 @@
                         aria-label="Registraties per maand in {{ $analytics['year'] }}. De volledige cijfers staan onder Grafiekgegevens."></canvas>
                     <div class="chart-tooltip" id="chart-tooltip" hidden></div>
                 </div>
+                {{-- De tabel maakt de cijfers ook zonder de getekende grafiek leesbaar. --}}
                 <details class="chart-data">
                     <summary>Grafiekgegevens bekijken</summary>
                     <table>
@@ -154,13 +160,15 @@
                             src="{{ asset('icons/tabler/users.svg') }}" alt="" width="20"
                             height="20"></span><span><strong>Nieuwe gebruiker</strong><small>Geef iemand
                             toegang</small></span><img src="{{ asset('icons/tabler/chevron-right.svg') }}" alt=""
-                        width="16" height="16"></a><a href="#systeem" class="shortcut"><span class="shortcut-icon purple"><img
-                            src="{{ asset('icons/tabler/activity.svg') }}" alt="" width="20"
-                            height="20"></span><span><strong>Omgevingsstatus</strong><small>Bekijk de laatste
+                        width="16" height="16"></a><a href="#systeem" class="shortcut"><span
+                        class="shortcut-icon purple"><img src="{{ asset('icons/tabler/activity.svg') }}" alt=""
+                            width="20" height="20"></span><span><strong>Omgevingsstatus</strong><small>Bekijk de
+                            laatste
                             controle</small></span><img src="{{ asset('icons/tabler/chevron-right.svg') }}"
                         alt="" width="16" height="16"></a>
             </section>
         </div>
+        {{-- Geef statistieken door aan JavaScript; de JSON_HEX-opties voorkomen dat tekst als HTML wordt geïnterpreteerd. --}}
         <script type="application/json" id="admin-chart-data">{!! json_encode($analytics, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
         <section class="panel admin-members" id="gebruikers" data-dashboard-section="gebruikers">
             <div class="admin-panel-heading">
@@ -172,6 +180,7 @@
                         href="{{ route('beheer.members.create') }}"><img src="{{ asset('icons/tabler/plus.svg') }}"
                             alt="" width="18" height="18"> Gebruiker toevoegen</a></div>
             </div>
+            {{-- Zoeken en filteren gebeurt via de URL; het verborgen jaarveld behoudt de grafiekselectie. --}}
             <form method="GET" action="{{ route('dashboard') }}#gebruikers" class="admin-filters"><input
                     type="hidden" name="year" value="{{ $analytics['year'] }}">
                 <label>Zoeken<input type="search" name="q" value="{{ $filters['q'] ?? '' }}" maxlength="100"
@@ -227,9 +236,11 @@
                                     <div class="admin-row-actions"><a class="admin-edit"
                                             href="{{ route('beheer.members.edit', $member) }}"
                                             aria-label="Bewerk {{ $member->voornaam }} {{ $member->achternaam }}">Bewerken</a>
+                                        {{-- Verberg de verwijderactie voor het eigen account; de controller moet verwijderverzoeken ook controleren. --}}
                                         @unless ($member->is(auth()->user()))
                                             <form method="POST" action="{{ route('beheer.members.destroy', $member) }}"
                                                 onsubmit="return confirm('Weet je zeker dat je deze gebruiker wilt verwijderen?')">
+                                                {{-- Het CSRF-token beschermt het formulier; method spoofing laat Laravel dit POST-verzoek als DELETE behandelen. --}}
                                                 @csrf @method('DELETE')<button class="admin-delete" type="submit"
                                                     aria-label="Verwijder {{ $member->voornaam }} {{ $member->achternaam }}">Verwijderen</button>
                                             </form>
@@ -250,18 +261,21 @@
                     </tbody>
                 </table>
             </div>
+            {{-- Toon alleen vorige- en volgende-links wanneer die pagina bestaat. --}}
             <div class="admin-pagination"><span>{{ $members->firstItem() ?? 0 }}–{{ $members->lastItem() ?? 0 }} van
                     {{ $members->total() }} gebruikers</span>
                 <div>
                     @if ($members->previousPageUrl())
                         <a class="admin-edit" href="{{ $members->previousPageUrl() }}">← Vorige</a>
-                        @endif <span>Pagina {{ $members->currentPage() }} / {{ $members->lastPage() }}</span>
-                        @if ($members->nextPageUrl())
-                            <a class="admin-edit" href="{{ $members->nextPageUrl() }}">Volgende →</a>
-                        @endif
+                    @endif <span>Pagina {{ $members->currentPage() }} /
+                        {{ $members->lastPage() }}</span>
+                    @if ($members->nextPageUrl())
+                        <a class="admin-edit" href="{{ $members->nextPageUrl() }}">Volgende →</a>
+                    @endif
                 </div>
             </div>
         </section>
+        {{-- Toon de beschikbare rollen met hun beschrijving en aantal gebruikers. --}}
         <section class="panel" id="rollen" data-dashboard-section="rollen">
             <div class="admin-panel-heading">
                 <div>
@@ -282,6 +296,7 @@
             </div>
             <p class="widget-detail">Toegang wordt door de applicatie bepaald op basis van de rolnaam.</p>
         </section>
+        {{-- Deze status hoort bij het laden van de pagina en wordt niet automatisch ververst. --}}
         <section class="panel" id="systeem" data-dashboard-section="systeem">
             <div class="admin-panel-heading">
                 <div>
@@ -297,4 +312,3 @@
         </section>
     </div>
 @endsection
-
