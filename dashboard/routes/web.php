@@ -22,6 +22,8 @@ Route::post('/dashboard/reflecties', [StudentDashboardController::class, 'storeR
 Route::post('/teamleider/groepen', [TeamManagerDashboardController::class, 'storeGroup'])->middleware('auth')->name('teammanager.groups.store');
 Route::post('/teamleider/groepen/{group}/leden', [TeamManagerDashboardController::class, 'storeGroupMember'])
     ->whereNumber('group')->middleware('auth')->name('teammanager.groups.members.store');
+Route::delete('/teamleider/groepen/{group}/leden/{member}', [TeamManagerDashboardController::class, 'destroyGroupMember'])
+    ->whereNumber('group')->whereNumber('member')->middleware('auth')->name('teammanager.groups.members.destroy');
 // Afmelden is een POST-verzoek, zodat de sessie veilig wordt beëindigd.
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth');
 
