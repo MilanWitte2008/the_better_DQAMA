@@ -45,11 +45,14 @@ class DashboardController extends Controller
             return app(ApplicationAdminController::class)->index($request);
         }
 
+        if ($roleKey === 'teamleider') {
+            return app(TeamManagerDashboardController::class)->index($request);
+        }
+
         // Kies voor elke andere rol de juiste pagina.
         $view = match ($roleKey) {
             'student' => 'dashboards.student',
             'docent' => 'dashboards.docent',
-            'teamleider' => 'dashboards.teammanager',
         };
 
         // Stuur de gebruiker en de rol naar de pagina.

@@ -88,7 +88,9 @@
 
                 const visibleTargets = target === 'leerdoelen'
                     ? ['leerdoelen', 'leeruitkomsten']
-                    : [target];
+                    : target === 'rapportages'
+                        ? ['rapportages', 'trends', 'instellingen']
+                        : [target];
 
                 document.querySelectorAll('[data-dashboard-section]').forEach((section) => {
                     section.hidden = target !== 'all' && !visibleTargets.includes(section.dataset.dashboardSection);
