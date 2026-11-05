@@ -24,6 +24,16 @@
             <button class="primary-button team-filter-button" type="submit" @disabled($groups->isEmpty())>Toon groep</button>
         </form>
 
+        @if ($selectedGroup)
+            <form class="team-group-delete-form" method="POST"
+                action="{{ route('teammanager.groups.destroy', $selectedGroup->idgroep) }}"
+                onsubmit="return confirm('Weet je zeker dat je deze groep wilt verwijderen? De groepskoppelingen verdwijnen, maar accounts en hun gegevens blijven behouden.')">
+                @csrf
+                @method('DELETE')
+                <button class="team-remove-button" type="submit">Groep verwijderen</button>
+            </form>
+        @endif
+
         @if (session('success'))
             <p class="info-strip" role="status">{{ session('success') }}</p>
         @endif

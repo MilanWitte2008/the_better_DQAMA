@@ -199,6 +199,31 @@ class TeamManagerDashboardController extends Controller
             ->with('success', 'De groep is aangemaakt.');
     }
 
+    public function destroyGroup(Request $request, int $group): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless(
+            $user->dashboardRoleKey() === 'teamleider'
+                && strtolower((string) $user->status) === 'actief',
+            403,
+        );
+
+        $isOwnGroup = DB::table('groep_has_lid')
+            ->where('idgroep', $group)
+            ->where('idlid', $user->getKey())
+            ->exists();
+        abort_unless($isOwnGroup, 404);
+
+        DB::transaction(function () use ($group): void {
+            DB::table('groep_has_lid')->where('idgroep', $group)->delete();
+            DB::table('groep')->where('idgroep', $group)->delete();
+        });
+
+        return redirect()->route('dashboard')
+            ->with('success', 'De groep is verwijderd. De leden en hun gegevens zijn behouden.');
+    }
+
     public function storeGroupMember(Request $request, int $group): RedirectResponse
     {
         /** @var User $user */

@@ -1169,6 +1169,11 @@ body {
         Helvetica,
         sans-serif;
 }
+.team-group-delete-form {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
 .team-action-form {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
