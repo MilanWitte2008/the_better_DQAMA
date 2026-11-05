@@ -18,9 +18,9 @@
     @php
         $roleLabels = ['student' => 'Student · ICT', 'docent' => 'Docent', 'beheerder' => 'Applicatiebeheerder', 'teamleider' => 'Teamleider'];
         $menuItems = [
-            'student' => [['⌂', 'Dashboard', 'all'], ['◉', 'Mijn ontwikkeling', 'ontwikkeling'], ['◷', 'Uren & resultaten', 'uren'], ['◇', 'Mijn leerdoelen', 'leerdoelen'], ['▤', 'Reflecties', 'reflecties'], ['↔', 'Vergelijken', 'vergelijken'], ['☷', 'Gesprekken', 'gesprekken']],
+            'student' => [['⌂', 'Dashboard', 'all'], ['◉', 'Mijn ontwikkeling', 'ontwikkeling'], ['◷', 'Uren & resultaten', 'uren'], ['◇', 'Mijn leerdoelen', 'leerdoelen'], ['▤', 'Reflecties', 'reflecties'], ['☷', 'Gesprekken', 'gesprekken']],
             'docent' => [['⌂', 'Dashboard', 'all'], ['♙', 'Studenten', 'studenten'], ['☷', 'Coachgesprekken', 'gesprekken'], ['▤', 'Notities', 'notities'], ['▥', 'Rapportages', 'rapportages']],
-            'beheerder' => [['⌂', 'Dashboard', 'all'], ['♙', 'Gebruikers', 'gebruikers'], ['⚿', 'Rollen & rechten', 'rollen'], ['▦', 'Scholen', 'scholen'], ['⚙', 'Systeemstatus', 'systeem']],
+            'beheerder' => [['⌂', 'Dashboard', 'all'], ['♙', 'Gebruikers', 'gebruikers'], ['⚿', 'Rollen & rechten', 'rollen'], ['⚙', 'Systeemstatus', 'systeem']],
             'teamleider' => [['⌂', 'Dashboard', 'all'], ['♙', 'Studenten & groepen', 'groepen'], ['▥', 'Rapportages', 'rapportages'], ['↗', 'Trends', 'trends'], ['⚙', 'Instellingen', 'instellingen']],
         ];
         $currentRoleKey = $roleKey ?? 'student';
@@ -86,20 +86,38 @@
                     return;
                 }
 
+                const visibleTargets = target === 'leerdoelen'
+                    ? ['leerdoelen', 'leeruitkomsten']
+                    : target === 'rapportages'
+                        ? ['rapportages', 'trends', 'instellingen']
+                        : [target];
+
                 document.querySelectorAll('[data-dashboard-section]').forEach((section) => {
-                    section.hidden = target !== 'all' && section.dataset.dashboardSection !== target;
+                    section.hidden = target !== 'all' && !visibleTargets.includes(section.dataset.dashboardSection);
+                });
+
+                document.querySelectorAll('.content-grid').forEach((grid) => {
+                    const visibleSections = Array.from(grid.children)
+                        .filter((section) => !section.hidden);
+                    grid.classList.toggle('single-column', visibleSections.length === 1);
                 });
 
                 document.querySelectorAll('[data-dashboard-target]').forEach((item) => {
                     const active = item === button;
+
                     item.classList.toggle('active', active);
                     item.setAttribute('aria-pressed', String(active));
                 });
             });
         });
+
         const initialSection = window.location.hash.slice(1);
-        const initialButton = Array.from(document.querySelectorAll('[data-dashboard-target]')).find(button => button.dataset.dashboardTarget === initialSection);
-        if (initialButton && document.querySelector('[data-dashboard-section]')) initialButton.click();
+        const initialButton = Array.from(document.querySelectorAll('[data-dashboard-target]'))
+            .find(button => button.dataset.dashboardTarget === initialSection);
+
+        if (initialButton && document.querySelector('[data-dashboard-section]')) {
+            initialButton.click();
+        }
     </script>
     @endif
 </body>
