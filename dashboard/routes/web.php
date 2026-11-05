@@ -3,6 +3,7 @@
 use App\Http\Controllers\ApplicationAdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\StudentDashboardController;
 use Illuminate\Support\Facades\Route;
 
 // Iedereen mag de startpagina bekijken. Inloggen heeft een eigen webadres.
@@ -14,6 +15,8 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10
 
 // Je moet ingelogd zijn. De controller kiest daarna de pagina voor jouw rol.
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
+Route::post('/dashboard/leerdoelen', [StudentDashboardController::class, 'storeGoal'])->middleware('auth')->name('student.goals.store');
+Route::post('/dashboard/reflecties', [StudentDashboardController::class, 'storeReflection'])->middleware('auth')->name('student.reflections.store');
 // Afmelden is een POST-verzoek, zodat de sessie veilig wordt beëindigd.
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth');
 
@@ -27,5 +30,4 @@ Route::middleware('auth')->prefix('beheer')->name('beheer.')->group(function () 
     Route::put('/gebruikers/{member}', [ApplicationAdminController::class, 'update'])->name('members.update');
     // DELETE vraagt om deze gebruiker te verwijderen. De controller controleert of dat mag.
     Route::delete('/gebruikers/{member}', [ApplicationAdminController::class, 'destroy'])->name('members.destroy');
-    Route::post('/scholen', [ApplicationAdminController::class, 'storeSchool'])->name('schools.store');
 });
