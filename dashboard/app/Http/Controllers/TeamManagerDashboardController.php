@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class TeamManagerDashboardController extends Controller
 {
@@ -25,6 +26,8 @@ class TeamManagerDashboardController extends Controller
             ->select('team_group.idgroep', 'team_group.groepnaam', 'team_group.status')
             ->orderBy('team_group.groepnaam')
             ->get();
+
+        $this->syncCoachAssignmentsForGroups($groups->pluck('idgroep')->map(fn ($groupId) => (int) $groupId)->all());
 
         $selectedGroup = $groups->firstWhere('idgroep', $request->query('groep'));
         if ($request->filled('groep') && ! $selectedGroup) {
@@ -259,16 +262,98 @@ class TeamManagerDashboardController extends Controller
             ])->withInput();
         }
 
-        $inserted = DB::table('groep_has_lid')->insertOrIgnore([
-            'idgroep' => $group,
-            'idlid' => $data['lid_idlid'],
-        ]);
+        $inserted = DB::transaction(function () use ($data, $group): int {
+            $inserted = DB::table('groep_has_lid')->insertOrIgnore([
+                'idgroep' => $group,
+                'idlid' => $data['lid_idlid'],
+            ]);
+
+            $this->syncCoachAssignmentsForGroups([$group]);
+
+            return $inserted;
+        });
 
         $message = $inserted > 0
             ? 'Het lid is aan de groep toegevoegd.'
             : 'Dit lid staat al in deze groep.';
 
         return redirect()->route('dashboard', ['groep' => $group])->with('success', $message);
+    }
+
+    /**
+     * Keep active coach assignments in sync with students who share the requested groups.
+     *
+     * @param  array<int, int>  $groupIds
+     */
+    private function syncCoachAssignmentsForGroups(array $groupIds): void
+    {
+        if ($groupIds === []
+            || ! Schema::hasTable('student_coach')
+            || ! Schema::hasTable('student')
+            || ! Schema::hasTable('coach')) {
+            return;
+        }
+
+        $activeStudents = DB::table('groep_has_lid as membership')
+            ->join('lid as member', 'member.idlid', '=', 'membership.idlid')
+            ->join('rol', 'rol.idrol', '=', 'member.rol_idrol')
+            ->whereIn('membership.idgroep', $groupIds)
+            ->where('member.status', 'actief')
+            ->whereRaw('LOWER(rol.naam) = ?', ['student'])
+            ->pluck('member.idlid')
+            ->unique()
+            ->values();
+
+        foreach ($activeStudents as $memberId) {
+            DB::table('student')->insertOrIgnore(['lid_idlid' => $memberId]);
+        }
+
+        $activeCoaches = DB::table('groep_has_lid as membership')
+            ->join('lid as member', 'member.idlid', '=', 'membership.idlid')
+            ->join('rol', 'rol.idrol', '=', 'member.rol_idrol')
+            ->whereIn('membership.idgroep', $groupIds)
+            ->where('member.status', 'actief')
+            ->whereRaw('LOWER(rol.naam) IN (?, ?)', ['docent', 'coach'])
+            ->pluck('member.idlid')
+            ->unique()
+            ->values();
+
+        foreach ($activeCoaches as $memberId) {
+            DB::table('coach')->insertOrIgnore(['lid_idlid' => $memberId]);
+        }
+
+        $assignments = DB::table('groep_has_lid as student_membership')
+            ->join('groep_has_lid as coach_membership', 'coach_membership.idgroep', '=', 'student_membership.idgroep')
+            ->join('lid as student_member', 'student_member.idlid', '=', 'student_membership.idlid')
+            ->join('rol as student_role', 'student_role.idrol', '=', 'student_member.rol_idrol')
+            ->join('student', 'student.lid_idlid', '=', 'student_member.idlid')
+            ->join('lid as coach_member', 'coach_member.idlid', '=', 'coach_membership.idlid')
+            ->join('rol as coach_role', 'coach_role.idrol', '=', 'coach_member.rol_idrol')
+            ->join('coach', 'coach.lid_idlid', '=', 'coach_member.idlid')
+            ->whereIn('student_membership.idgroep', $groupIds)
+            ->where('student_member.status', 'actief')
+            ->where('coach_member.status', 'actief')
+            ->whereRaw('LOWER(student_role.naam) = ?', ['student'])
+            ->whereRaw('LOWER(coach_role.naam) IN (?, ?)', ['docent', 'coach'])
+            ->select('student.idstudent as student_idstudent', 'coach.idcoach as coach_idcoach')
+            ->distinct()
+            ->get()
+            ->map(fn ($assignment) => [
+                'student_idstudent' => $assignment->student_idstudent,
+                'coach_idcoach' => $assignment->coach_idcoach,
+                'status' => 'actief',
+                'startdatum' => today()->toDateString(),
+                'einddatum' => null,
+            ])
+            ->all();
+
+        foreach (array_chunk($assignments, 500) as $chunk) {
+            DB::table('student_coach')->upsert(
+                $chunk,
+                ['student_idstudent', 'coach_idcoach'],
+                ['status', 'einddatum'],
+            );
+        }
     }
 
     public function destroyGroupMember(Request $request, int $group, int $member): RedirectResponse

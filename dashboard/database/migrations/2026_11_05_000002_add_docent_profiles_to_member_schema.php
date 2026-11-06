@@ -115,6 +115,40 @@ return new class extends Migration
                 ]);
             }
         }
+
+        if (Schema::hasTable('groep_has_lid')) {
+            $groupAssignments = DB::table('groep_has_lid as student_membership')
+                ->join('groep_has_lid as coach_membership', 'coach_membership.idgroep', '=', 'student_membership.idgroep')
+                ->join('lid as student_member', 'student_member.idlid', '=', 'student_membership.idlid')
+                ->join('rol as student_role', 'student_role.idrol', '=', 'student_member.rol_idrol')
+                ->join('student', 'student.lid_idlid', '=', 'student_member.idlid')
+                ->join('lid as coach_member', 'coach_member.idlid', '=', 'coach_membership.idlid')
+                ->join('rol as coach_role', 'coach_role.idrol', '=', 'coach_member.rol_idrol')
+                ->join('coach', 'coach.lid_idlid', '=', 'coach_member.idlid')
+                ->where('student_member.status', 'actief')
+                ->where('coach_member.status', 'actief')
+                ->whereRaw('LOWER(student_role.naam) = ?', ['student'])
+                ->whereRaw('LOWER(coach_role.naam) IN (?, ?)', ['docent', 'coach'])
+                ->select('student.idstudent as student_idstudent', 'coach.idcoach as coach_idcoach')
+                ->distinct()
+                ->get()
+                ->map(fn ($assignment) => [
+                    'student_idstudent' => $assignment->student_idstudent,
+                    'coach_idcoach' => $assignment->coach_idcoach,
+                    'status' => 'actief',
+                    'startdatum' => today()->toDateString(),
+                    'einddatum' => null,
+                ])
+                ->all();
+
+            foreach (array_chunk($groupAssignments, 500) as $chunk) {
+                DB::table('student_coach')->upsert(
+                    $chunk,
+                    ['student_idstudent', 'coach_idcoach'],
+                    ['status', 'einddatum'],
+                );
+            }
+        }
     }
 
     public function down(): void
