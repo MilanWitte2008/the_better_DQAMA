@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class TeamManagerDashboardController extends Controller
 {
@@ -18,15 +19,16 @@ class TeamManagerDashboardController extends Controller
             403,
         );
 
-        $groups = DB::table('groep as team_group')
+        $groupsAvailable = Schema::hasTable('groep') && Schema::hasTable('groep_has_lid');
+        $groups = $groupsAvailable ? DB::table('groep as team_group')
             ->join('groep_has_lid as membership', 'membership.idgroep', '=', 'team_group.idgroep')
             ->where('membership.idlid', $user->getKey())
             ->select('team_group.idgroep', 'team_group.groepnaam', 'team_group.status')
             ->orderBy('team_group.groepnaam')
-            ->get();
+            ->get() : collect();
 
         $selectedGroup = $groups->firstWhere('idgroep', $request->query('groep'));
-        if ($request->filled('groep') && ! $selectedGroup) {
+        if ($groupsAvailable && $request->filled('groep') && ! $selectedGroup) {
             abort(404);
         }
         $selectedGroup ??= $groups->first();
@@ -65,7 +67,7 @@ class TeamManagerDashboardController extends Controller
                 ->selectRaw('COALESCE(progress.total_outcomes, 0) AS total_outcomes')
                 ->selectRaw('COALESCE(progress.completed_outcomes, 0) AS completed_outcomes')
                 ->selectRaw('CASE WHEN COALESCE(progress.total_outcomes, 0) > 0 THEN ROUND(progress.completed_outcomes * 100 / progress.total_outcomes) ELSE 0 END AS voortgang')
-                ->selectRaw("CASE WHEN reflection_updates.last_reflection IS NULL THEN hour_updates.last_hour_entry WHEN hour_updates.last_hour_entry IS NULL THEN reflection_updates.last_reflection ELSE GREATEST(reflection_updates.last_reflection, hour_updates.last_hour_entry) END AS laatste_update")
+                ->selectRaw('CASE WHEN reflection_updates.last_reflection IS NULL THEN hour_updates.last_hour_entry WHEN hour_updates.last_hour_entry IS NULL THEN reflection_updates.last_reflection ELSE GREATEST(reflection_updates.last_reflection, hour_updates.last_hour_entry) END AS laatste_update')
                 ->orderBy('member.achternaam')
                 ->orderBy('member.voornaam')
                 ->get();
@@ -102,6 +104,7 @@ class TeamManagerDashboardController extends Controller
             'user' => $user,
             'roleKey' => 'teamleider',
             'groups' => $groups,
+            'groupsAvailable' => $groupsAvailable,
             'selectedGroup' => $selectedGroup,
             'students' => $students,
             'outcomeProgress' => $outcomeProgress,

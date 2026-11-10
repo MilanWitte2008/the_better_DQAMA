@@ -3,11 +3,8 @@
 use App\Http\Controllers\ApplicationAdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
-<<<<<<< HEAD
 use App\Http\Controllers\DocentController;
-=======
 use App\Http\Controllers\StudentDashboardController;
->>>>>>> 51d3f9eea72b491d343b3a11396d3f31325262ac
 use Illuminate\Support\Facades\Route;
 
 // Iedereen mag de startpagina bekijken. Inloggen heeft een eigen webadres.

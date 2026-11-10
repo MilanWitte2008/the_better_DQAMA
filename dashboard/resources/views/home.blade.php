@@ -16,7 +16,7 @@
         ['id' => 'beheerder', 'label' => 'Beheerders', 'icon' => 'shield-check', 'eyebrow' => 'EEN GOEDE BASIS VOOR IEDEREEN', 'title' => 'Regel de toegang. Bewaar het overzicht.', 'text' => 'Beheer accounts en rollen en bekijk de actuele verdeling van je gebruikers.', 'points' => ['Gebruikers aanmaken, zoeken en bewerken', 'Rollen en accountstatus beheren', 'Statistieken uit de bestaande database'], 'preview' => 'Applicatiebeheer', 'metric' => '4', 'metricLabel' => 'rollen, één omgeving', 'rows' => [['Gebruikers', 'Beheren'], ['Rollen & toegang', 'Organiseren'], ['Status', 'Controleren']]],
     ];
     $questions = [
-        ['Voor wie is DQAMA bedoeld?', 'DQAMA is een ontwikkelplatform voor studenten, coaches, teamleiders en applicatiebeheerders. Elke rol heeft een eigen dashboard met een passend overzicht.'],
+        ['Voor wie is Firda bedoeld?', 'Firda is een ontwikkelplatform voor studenten, coaches, teamleiders en applicatiebeheerders. Elke rol heeft een eigen dashboard met een passend overzicht.'],
         ['Hoe krijg ik een account?', 'Je applicatiebeheerder maakt je account aan en koppelt het aan een rol. Heb je nog geen inloggegevens? Vraag deze aan bij je begeleider of beheerder.'],
         ['Welk dashboard zie ik na het inloggen?', 'Na het inloggen controleert het platform je rol en accountstatus. Je komt vervolgens automatisch op het dashboard dat bij jouw rol hoort.'],
         ['Zijn de voorbeelden op deze pagina echte gegevens?', 'Nee. De previews op deze pagina gebruiken voorbeeldgegevens om het platform te laten zien. Persoonlijke gegevens en beheerfuncties zijn alleen beschikbaar na het inloggen.'],
@@ -31,14 +31,14 @@
         <meta name="theme-color" content="#102e55">
         <meta
             name="description"
-            content="DQAMA brengt leerdoelen, reflecties en begeleiding samen. Ontdek een eigen werkruimte voor studenten, coaches, teamleiders en beheerders.">
-        <meta property="og:title" content="DQAMA — Ruimte om te groeien">
+            content="Firda brengt leerdoelen, reflecties en begeleiding samen. Ontdek een eigen werkruimte voor studenten, coaches, teamleiders en beheerders.">
+        <meta property="og:title" content="Firda — Ruimte om te groeien">
         <meta
             property="og:description"
             content="Jouw ontwikkeling, helder in beeld. Eén platform voor studenten en hun begeleiders.">
         <meta property="og:type" content="website">
         <meta property="og:locale" content="nl_NL">
-        <title>DQAMA — Ruimte om te groeien</title>
+        <title>Firda — Ruimte om te groeien</title>
         {{-- Laad de CSS voor het uiterlijk en JavaScript voor de knoppen en tabs. --}}
         @vite(['resources/css/landing.css', 'resources/js/landing.js'])
     </head>
@@ -46,7 +46,7 @@
         <a class="lp-skip" href="#inhoud">Direct naar inhoud</a>
         <header class="lp-header" data-header>
             <div class="lp-container lp-nav-wrap">
-                <a class="lp-brand" href="{{ route('home') }}" aria-label="DQAMA startpagina"><img class="lp-brand-image" src="{{ asset('images/landing/dqama-logo.png') }}" alt="DQAMA" width="150" height="86"></a>
+                <a class="lp-brand" href="{{ route('home') }}" aria-label="Firda startpagina"><x-firda-wordmark class="firda-header" /></a>
                 {{-- Deze links gaan naar onderdelen op dezelfde pagina. --}}
                 <nav class="lp-nav" id="site-navigation" aria-label="Hoofdnavigatie">
                     <a href="#platform">Het platform</a><a href="#voor-wie">Voor wie</a><a href="#werkwijze">Zo werkt het</a><a href="#vragen">Veelgestelde vragen</a>
@@ -72,10 +72,10 @@
                             Kleine stappen.<br>Grote <span>groei.</span>
                         </h1>
                         <p class="lp-lead">
-                            Je hebt meer in je dan je denkt. DQAMA brengt je leerdoelen, reflecties en begeleiding samen. Zodat jij ziet waar je staat — en waar je naartoe kunt.
+                            Je hebt meer in je dan je denkt. Firda brengt je leerdoelen, reflecties en begeleiding samen. Zodat jij ziet waar je staat — en waar je naartoe kunt.
                         </p>
                         <div class="lp-hero-actions">
-                            <a class="lp-button lp-button-primary" href="{{ $workspaceUrl }}">{{ auth()->check() ? 'Naar mijn dashboard' : 'Naar mijn omgeving' }} <x-landing-icon name="arrow-right" /></a><a class="lp-text-link" href="#platform">Ontdek DQAMA <x-landing-icon name="chevron-right" :size="17" /></a>
+                            <a class="lp-button lp-button-primary" href="{{ $workspaceUrl }}">{{ auth()->check() ? 'Naar mijn dashboard' : 'Naar mijn omgeving' }} <x-landing-icon name="arrow-right" /></a><a class="lp-text-link" href="#platform">Ontdek Firda <x-landing-icon name="chevron-right" :size="17" /></a>
                         </div>
                         <div class="lp-hero-footnote">
                             <span class="lp-tiny-icon"><x-landing-icon name="shield-check" :size="18" /></span>
@@ -84,16 +84,15 @@
                             </p>
                         </div>
                     </div>
-                    {{-- Toon het logo en de achtergrond uit de map public/images/landing. --}}
-                    <div class="lp-brand-stage" aria-label="DQAMA — jouw ontwikkeling in de spotlight">
-                        <img
-                            class="lp-stage-background"
-                            src="{{ asset('images/landing/neon-stage.jpg') }}"
-                            alt=""
-                            width="7084"
-                            height="4250"
-                            fetchpriority="high">
-                        <img class="lp-stage-logo" src="{{ asset('images/landing/dqama-logo.png') }}" alt="DQAMA" width="2154" height="1240">
+                    {{-- Het woordmerk zweeft boven een verlicht podium. --}}
+                    <div class="lp-brand-stage" aria-label="Firda — jouw ontwikkeling in de spotlight">
+                        <div class="lp-stage-podium" aria-hidden="true">
+                            <span class="lp-podium-base"></span>
+                            <span class="lp-podium-rim"></span>
+                            <span class="lp-podium-wall"></span>
+                            <span class="lp-podium-top"></span>
+                        </div>
+                        <x-firda-wordmark class="firda-hero" />
                         <span class="lp-stage-label">JOUW TOEKOMST. IN DE SPOTLIGHT.</span>
                     </div>
                 </div>
@@ -201,13 +200,7 @@
                             </div>
                             <div class="lp-role-preview">
                                 <div class="lp-role-preview-header">
-                                    <img
-                                        class="lp-preview-logo"
-                                        src="{{ asset('images/landing/dqama-logo.png') }}"
-                                        alt="DQAMA"
-                                        width="60"
-                                        height="35"
-                                        loading="lazy"><strong>{{ $role['preview'] }}</strong><span class="lp-example-label">VOORBEELD</span>
+                                    <x-firda-wordmark class="firda-preview" /><strong>{{ $role['preview'] }}</strong><span class="lp-example-label">VOORBEELD</span>
                                 </div>
                                 <div class="lp-role-stat">
                                     <span>{{ $role['preview'] }}</span><strong>{{ $role['metric'] }}</strong><small>{{ $role['metricLabel'] }}</small>
@@ -281,7 +274,7 @@
                             Nog een<br><span>vraag?</span>
                         </h2>
                         <p>
-                            Hier vind je de belangrijkste antwoorden over DQAMA.
+                            Hier vind je de belangrijkste antwoorden over Firda.
                         </p>
                         <div class="lp-help-note">
                             <x-landing-icon name="users" :size="22" />
@@ -315,7 +308,7 @@
                             </p>
                         </div>
                         <div class="lp-final-actions">
-                            <a class="lp-button lp-button-white" href="{{ $workspaceUrl }}">{{ auth()->check() ? 'Naar mijn dashboard' : 'Log in op DQAMA' }} <x-landing-icon name="arrow-right" /></a><span>Jouw omgeving staat voor je klaar.</span>
+                            <a class="lp-button lp-button-white" href="{{ $workspaceUrl }}">{{ auth()->check() ? 'Naar mijn dashboard' : 'Log in op Firda' }} <x-landing-icon name="arrow-right" /></a><span>Jouw omgeving staat voor je klaar.</span>
                         </div>
                     </div>
                 </div>
@@ -325,7 +318,7 @@
         <footer class="lp-footer">
             <div class="lp-container">
                 <div class="lp-footer-top">
-                    <a class="lp-brand" href="{{ route('home') }}"><img class="lp-brand-image" src="{{ asset('images/landing/dqama-logo.png') }}" alt="DQAMA" width="150" height="86"></a>
+                    <a class="lp-brand" href="{{ route('home') }}"><x-firda-wordmark class="firda-header" /></a>
                     <p>
                         Jouw ontwikkeling, helder in beeld.
                     </p>
@@ -334,7 +327,7 @@
                     </nav>
                 </div>
                 <div class="lp-footer-bottom">
-                    <span>© {{ now()->year }} DQAMA</span><span>Gemaakt voor groei. Ontworpen voor mensen.</span><a href="#inhoud">Terug naar boven <x-landing-icon name="arrow-up-right" :size="14" /></a>
+                    <span>© {{ now()->year }} Firda</span><span>Gemaakt voor groei. Ontworpen voor mensen.</span><a href="#inhoud">Terug naar boven <x-landing-icon name="arrow-up-right" :size="14" /></a>
                 </div>
             </div>
         </footer>
