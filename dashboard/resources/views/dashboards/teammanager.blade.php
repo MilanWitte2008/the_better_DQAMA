@@ -6,6 +6,12 @@
 @section('welcome-subtitle', 'Bekijk de voortgang van studenten en groepen binnen je team.')
 
 @section('content')
+    @unless ($groupsAvailable)
+        <div class="panel" role="status">
+            Groepsbeheer is nog niet ingericht in deze database. De tabellen voor groepen en groepsleden ontbreken.
+            Zodra deze zijn ingericht, verschijnt hier de voortgang van je gekoppelde groepen.
+        </div>
+    @endunless
     <section class="panel team-group-panel" id="groepen" data-dashboard-section="groepen">
         <h3>Groepsleden in deze groep</h3>
         <form class="team-filters" method="GET" action="{{ route('dashboard') }}">

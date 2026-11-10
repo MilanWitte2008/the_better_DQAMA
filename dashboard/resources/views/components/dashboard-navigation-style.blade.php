@@ -83,3 +83,11 @@ body.docent-page.dashboard-navigation .sidebar nav a>span {font-size:13px}
     body.dashboard-navigation .topbar-actions{gap:12px;width:100%;flex-wrap:wrap}
 }
 @media(prefers-reduced-motion:reduce){body.dashboard-navigation .sidebar nav a,body.dashboard-navigation .sidebar nav button{transition:none}}
+
+body.dashboard-navigation .sidebar .firda-nav-logo {
+    display:block;width:56px;height:auto;flex-shrink:0;border-radius:8px;
+    box-shadow:0 3px 12px #0002;
+}
+@media(max-width:700px) {
+    body.dashboard-navigation .sidebar .firda-nav-logo {width:36px;border-radius:5px;}
+}
