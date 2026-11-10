@@ -55,6 +55,17 @@
                 <label>Status *<select name="status"><option value="actief" @selected(old('status', $member->status ?? 'actief') === 'actief')>Actief</option><option value="inactief" @selected(old('status', $member->status) === 'inactief')>Inactief</option></select></label>
             </div>
             {{-- Toon extra uitleg als de beheerder het eigen account bewerkt. --}}
+            @if($hasStudentProfiles)
+                <fieldset class="admin-password">
+                    <legend>Studentgegevens</legend>
+                    <p>Voor accounts met een studentprofiel of de rol Student.</p>
+                    <div class="admin-form-grid">
+                        @foreach(['studentnummer' => ['Studentnummer', 20], 'klas' => ['Klas', 20], 'opleiding' => ['Opleiding', 50]] as $field => [$label, $max])
+                            <label>{{ $label }}<input name="{{ $field }}" value="{{ old($field, $studentProfile?->$field) }}" maxlength="{{ $max }}" @if($errors->has($field)) aria-invalid="true" @endif></label>
+                        @endforeach
+                    </div>
+                </fieldset>
+            @endif
             @if($member->is(auth()->user()))
                 <p class="info-strip">
                     Dit is je eigen account. Je rol en actieve status moeten behouden blijven.
