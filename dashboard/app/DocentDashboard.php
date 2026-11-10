@@ -23,15 +23,86 @@ class DocentDashboard
     public function studentIds(User $user): Collection
     {
         $coachIds = $this->coachIds($user);
-        if ($coachIds->isEmpty() || ! Schema::hasTable('student_coach')) {
+        if ($coachIds->isEmpty()) {
             return collect();
         }
 
-        return DB::table('student_coach')->whereIn('coach_idcoach', $coachIds)
-            ->whereRaw('LOWER(status) = ?', ['actief'])
-            ->where(fn ($q) => $q->whereNull('startdatum')->orWhereDate('startdatum', '<=', today()))
-            ->where(fn ($q) => $q->whereNull('einddatum')->orWhereDate('einddatum', '>=', today()))
-            ->pluck('student_idstudent');
+        $studentIds = Schema::hasTable('student_coach')
+            ? DB::table('student_coach')->whereIn('coach_idcoach', $coachIds)
+                ->whereRaw('LOWER(status) = ?', ['actief'])
+                ->where(fn ($q) => $q->whereNull('startdatum')->orWhereDate('startdatum', '<=', today()))
+                ->where(fn ($q) => $q->whereNull('einddatum')->orWhereDate('einddatum', '>=', today()))
+                ->pluck('student_idstudent')
+            : collect();
+
+        $groupIds = $this->teacherGroupIds($user);
+        if ($groupIds->isNotEmpty()
+            && Schema::hasTable('student')
+            && Schema::hasTable('lid')
+            && Schema::hasTable('rol')) {
+            $groupStudentIds = DB::table('groep_has_lid as membership')
+                ->join('student', 'student.lid_idlid', '=', 'membership.idlid')
+                ->join('lid as student_member', 'student_member.idlid', '=', 'membership.idlid')
+                ->join('rol as student_role', 'student_role.idrol', '=', 'student_member.rol_idrol')
+                ->whereIn('membership.idgroep', $groupIds)
+                ->where('student_member.status', 'actief')
+                ->whereRaw('LOWER(student_role.naam) = ?', ['student'])
+                ->distinct()
+                ->pluck('student.idstudent');
+
+            $studentIds = $studentIds->merge($groupStudentIds);
+        }
+
+        return $studentIds->unique()->values();
+    }
+
+    private function teacherGroupIds(User $user): Collection
+    {
+        if (! Schema::hasTable('groep')
+            || ! Schema::hasTable('groep_has_lid')
+            || ! Schema::hasColumn('groep', 'idgroep')
+            || ! Schema::hasColumn('groep', 'groepnaam')
+            || ! Schema::hasColumn('groep_has_lid', 'idgroep')
+            || ! Schema::hasColumn('groep_has_lid', 'idlid')) {
+            return collect();
+        }
+
+        $groups = DB::table('groep as teacher_group')
+            ->join('groep_has_lid as membership', 'membership.idgroep', '=', 'teacher_group.idgroep')
+            ->where('membership.idlid', $user->getKey())
+            ->whereRaw('LOWER(COALESCE(teacher_group.groepnaam, ?)) <> ?', ['', 'alle leden']);
+
+        if (Schema::hasColumn('groep', 'status')) {
+            $groups->whereRaw('LOWER(COALESCE(teacher_group.status, ?)) = ?', ['', 'actief']);
+        }
+
+        return $groups->pluck('teacher_group.idgroep')->unique()->values();
+    }
+
+    private function teacherGroupStudents(Collection $groupIds): Collection
+    {
+        if ($groupIds->isEmpty() || ! Schema::hasTable('lid') || ! Schema::hasTable('rol')) {
+            return collect();
+        }
+
+        $students = DB::table('groep_has_lid as membership')
+            ->join('groep as teacher_group', 'teacher_group.idgroep', '=', 'membership.idgroep')
+            ->join('lid as student_member', 'student_member.idlid', '=', 'membership.idlid')
+            ->join('rol as student_role', 'student_role.idrol', '=', 'student_member.rol_idrol')
+            ->whereIn('membership.idgroep', $groupIds)
+            ->whereRaw('LOWER(student_role.naam) = ?', ['student']);
+
+        if (Schema::hasColumn('lid', 'status')) {
+            $students->whereRaw('LOWER(student_member.status) = ?', ['actief']);
+        }
+
+        return $students
+            ->select('teacher_group.idgroep', 'teacher_group.groepnaam', 'student_member.idlid', 'student_member.voornaam', 'student_member.achternaam')
+            ->orderBy('teacher_group.groepnaam')
+            ->orderBy('student_member.achternaam')
+            ->orderBy('student_member.voornaam')
+            ->distinct()
+            ->get();
     }
 
     /**
@@ -41,20 +112,44 @@ class DocentDashboard
     public function data(User $user, Request $request): array
     {
         $coachIds = $this->coachIds($user);
+        $groupIds = $this->teacherGroupIds($user);
+        $teacherGroups = $groupIds->isNotEmpty()
+            ? DB::table('groep')
+                ->whereIn('idgroep', $groupIds)
+                ->select('idgroep', 'groepnaam')
+                ->orderBy('groepnaam')
+                ->get()
+            : collect();
+        $teacherGroupStudents = $this->teacherGroupStudents($groupIds);
 
         if (! Schema::hasTable('coach')) {
+            $search = is_string($request->query('q')) ? mb_substr(trim($request->query('q')), 0, 100) : '';
+            $class = is_string($request->query('klas')) ? mb_substr(trim($request->query('klas')), 0, 100) : '';
+            $visibleGroupStudents = $teacherGroupStudents
+                ->filter(function ($groupStudent) use ($search, $class): bool {
+                    $name = mb_strtolower(trim(($groupStudent->voornaam ?? '').' '.($groupStudent->achternaam ?? '')));
+                    $groupName = (string) $groupStudent->groepnaam;
+
+                    return ($class === '' || $class === $groupName)
+                        && ($search === '' || str_contains($name, mb_strtolower($search)));
+                })
+                ->values();
+
             return [
                 'students' => collect(),
                 'filtered' => collect(),
                 'selected' => null,
                 'outcomes' => collect(),
-                'search' => '',
-                'class' => '',
+                'search' => $search,
+                'class' => $class,
                 'attention' => false,
                 'total' => 0,
                 'achieved' => 0,
+                'teacherGroups' => $teacherGroups,
+                'teacherGroupStudents' => $teacherGroupStudents,
+                'visibleGroupStudents' => $visibleGroupStudents,
                 'availableOutcomes' => collect(),
-                'classes' => collect(),
+                'classes' => $teacherGroups->pluck('groepnaam')->filter()->values(),
                 'attentionCount' => 0,
                 'coachLinked' => false,
                 'notesCount' => 0,
@@ -68,7 +163,7 @@ class DocentDashboard
         $assigned = $this->studentIds($user);
         $students = DB::table('student as s')->join('lid as l', 'l.idlid', '=', 's.lid_idlid')
             ->whereIn('s.idstudent', $assigned)
-            ->select('s.idstudent', 's.klas', 's.opleiding', 's.studentnummer', 'l.voornaam', 'l.achternaam', 'l.email', 'l.status')
+            ->select('s.idstudent', 's.lid_idlid', 's.klas', 's.opleiding', 's.studentnummer', 'l.voornaam', 'l.achternaam', 'l.email', 'l.status')
             ->orderBy('l.achternaam')->orderBy('l.voornaam')->get();
         $ids = $students->pluck('idstudent');
         $outcomes = DB::table('student_leeruitkomsten as a')
@@ -105,9 +200,26 @@ class DocentDashboard
         $total = $outcomes->count();
         $achieved = $outcomes->filter(fn ($item) => strtolower((string) $item->status) === 'behaald')->count();
 
-        return compact('students', 'filtered', 'selected', 'outcomes', 'search', 'class', 'attention', 'total', 'achieved') + [
+        $visibleGroupStudents = $teacherGroupStudents
+            ->filter(fn ($groupStudent) => ! $filtered->contains('lid_idlid', $groupStudent->idlid))
+            ->filter(function ($groupStudent) use ($search, $class): bool {
+                $name = mb_strtolower(trim(($groupStudent->voornaam ?? '').' '.($groupStudent->achternaam ?? '')));
+                $groupName = (string) $groupStudent->groepnaam;
+
+                return ($class === '' || $class === $groupName)
+                    && ($search === '' || str_contains($name, mb_strtolower($search)));
+            })
+            ->values();
+        $classes = $students->pluck('klas')
+            ->merge($teacherGroups->pluck('groepnaam'))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
+
+        return compact('students', 'filtered', 'selected', 'outcomes', 'search', 'class', 'attention', 'total', 'achieved', 'teacherGroups', 'teacherGroupStudents', 'visibleGroupStudents') + [
             'availableOutcomes' => $selected ? DB::table('leeruitkomsten')->whereNotIn('leeruitkomsten_id', DB::table('student_leeruitkomsten')->where('student_idstudent', $selected->idstudent)->select('leeruitkomsten_leeruitkomsten_id'))->orderBy('code')->get(['leeruitkomsten_id', 'code', 'titel']) : collect(),
-            'classes' => $students->pluck('klas')->filter()->unique()->sort(),
+            'classes' => $classes,
             'attentionCount' => $students->where('attention', true)->count(),
             'coachLinked' => $coachIds->isNotEmpty(),
             'notesCount' => (clone $notes)->count(),

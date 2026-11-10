@@ -18,6 +18,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Docentdashboard · Ontwikkelplatform</title>
+    <script src="{{ asset('js/dashboard-notifications.js') }}?v={{ filemtime(public_path('js/dashboard-notifications.js')) }}" defer></script>
     <style>
         @include('dashboards.docent-style') @include('components.dashboard-navigation-style')
     </style>
@@ -53,6 +54,7 @@
                 <span id="section-title" class="sr-only">Overzicht</span>
             </div>
             <div class="topbar-actions">
+                @include('components.notification-button')
                 <span
                     class="avatar avatar-light">{{ mb_strtoupper(mb_substr($user->voornaam ?? '', 0, 1) . mb_substr($user->achternaam ?? '', 0, 1)) }}</span>
                 <form method="POST" action="{{ url('/logout') }}">@csrf<button class="logout-button"
@@ -110,7 +112,20 @@
                         <div>
                             <p class="eyebrow">BEGELEIDING</p>
                             <h2>Mijn studenten <span class="count">{{ $students->count() }}</span></h2>
-                        </div><span class="live">Uit de database</span>
+                        </div>
+                        <div class="student-group-summary">
+                            <span class="live">Uit de database</span>
+                            @if ($teacherGroups->isNotEmpty())
+                                <div class="teacher-class-list" aria-label="Jouw klas">
+                                    <span>Jouw klas{{ $teacherGroups->count() > 1 ? 'sen' : '' }}:</span>
+                                    @foreach ($teacherGroups as $group)
+                                        <span class="count">{{ $group->groepnaam ?: 'Groep ' . $group->idgroep }}</span>
+                                    @endforeach
+                                </div>
+                            @else
+                                <span class="muted teacher-class-empty">Geen klas gekoppeld</span>
+                            @endif
+                        </div>
                     </div>
                     {{-- GET-filters delen dezelfde toegangsselectie als de detailweergave. --}}
                     <form class="filters" method="GET" action="{{ route('dashboard') }}#studenten">
@@ -138,13 +153,14 @@
                             <thead>
                                 <tr>
                                     <th>Student</th>
+                                    <th>Klas</th>
                                     <th>Voortgang</th>
                                     <th>Laatste update</th>
                                     <th><span class="sr-only">Details</span></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($filtered as $student)
+                                @foreach($filtered as $student)
                                     <tr>
                                         <td>
                                             <div class="person"><span
@@ -154,6 +170,7 @@
                                                         · {{ $student->opleiding ?: 'Geen opleiding' }}</small></div>
                                             </div>
                                         </td>
+                                        <td>{{ $student->klas ?: 'Niet ingesteld' }}</td>
                                         <td>
                                             @if ($student->progress !== null)
                                                 <div class="progress-label">
@@ -173,21 +190,37 @@
                                                 aria-label="Bekijk {{ $student->voornaam }} {{ $student->achternaam }}">Bekijk ↗</a>
                                         </td>
                                     </tr>
-                                @empty<tr>
-                                        <td colspan="4">
+                                @endforeach
+                                @foreach ($visibleGroupStudents as $groupStudent)
+                                    <tr>
+                                        <td>
+                                            <div class="person"><span
+                                                    class="avatar">{{ mb_strtoupper(mb_substr($groupStudent->voornaam ?? '', 0, 1) . mb_substr($groupStudent->achternaam ?? '', 0, 1)) }}</span>
+                                                <div><strong>{{ $groupStudent->voornaam }}
+                                                        {{ $groupStudent->achternaam }}</strong><small>Leerling in {{ $groupStudent->groepnaam }}</small></div>
+                                            </div>
+                                        </td>
+                                        <td>{{ $groupStudent->groepnaam }}</td>
+                                        <td><span class="muted">Nog geen voortgang beschikbaar</span></td>
+                                        <td><span class="muted">Nog geen updates</span></td>
+                                        <td></td>
+                                    </tr>
+                                @endforeach
+                                @if ($filtered->isEmpty() && $visibleGroupStudents->isEmpty())
+                                    <tr>
+                                        <td colspan="5">
                                             <div class="empty">
-                                                <strong>{{ $students->isEmpty() ? 'Nog geen studenten gekoppeld' : 'Geen studenten gevonden' }}</strong>
-                                                <p>{{ $students->isEmpty() ? 'Zodra een actieve begeleiding is vastgelegd, verschijnen je studenten hier.' : 'Pas de zoekterm of filters aan om meer studenten te zien.' }}
+                                                <strong>{{ $students->isEmpty() && $teacherGroupStudents->isEmpty() ? 'Nog geen leerlingen gekoppeld' : 'Geen leerlingen gevonden' }}</strong>
+                                                <p>{{ $students->isEmpty() && $teacherGroupStudents->isEmpty() ? 'Zodra leerlingen aan jouw klas zijn gekoppeld, verschijnen ze hier.' : 'Pas de zoekterm of filters aan om meer leerlingen te zien.' }}
                                                 </p>
                                             </div>
                                         </td>
                                     </tr>
-                                @endforelse
+                                @endif
                             </tbody>
                         </table>
                     </div>
-                    <div class="table-footer">{{ $filtered->count() }} van {{ $students->count() }} studenten ·
-                        Alleen jouw actuele begeleiding</div>
+                    <div class="table-footer">{{ $filtered->count() + $visibleGroupStudents->count() }} leerlingen in de lijst</div>
                 </section>
                 <section class="card" id="rapportages">
                     <p class="eyebrow">ONTWIKKELING IN BEELD</p>

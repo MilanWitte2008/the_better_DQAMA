@@ -88,6 +88,60 @@ class DocentDashboardTest extends TestCase
         $this->assertCount(2, $data['filtered']);
     }
 
+    public function test_docent_can_see_their_active_class_beside_the_student_list(): void
+    {
+        DB::statement('CREATE TABLE groep (idgroep INTEGER PRIMARY KEY, groepnaam TEXT, status TEXT)');
+        DB::statement('CREATE TABLE groep_has_lid (idgroep INTEGER, idlid INTEGER)');
+        DB::table('groep')->insert([
+            ['idgroep' => 1, 'groepnaam' => 'Alle leden', 'status' => null],
+            ['idgroep' => 2, 'groepnaam' => 'ICT 2A', 'status' => 'actief'],
+            ['idgroep' => 3, 'groepnaam' => 'ICT 2B', 'status' => 'inactief'],
+        ]);
+        DB::table('groep_has_lid')->insert([
+            ['idgroep' => 1, 'idlid' => 1],
+            ['idgroep' => 2, 'idlid' => 1],
+            ['idgroep' => 2, 'idlid' => 13],
+            ['idgroep' => 3, 'idlid' => 1],
+            ['idgroep' => 2, 'idlid' => 2],
+        ]);
+
+        $data = app(DocentDashboard::class)->data(User::findOrFail(1), Request::create('/dashboard'));
+
+        $this->assertSame(['ICT 2A'], $data['teacherGroups']->pluck('groepnaam')->all());
+        $this->assertSame([11, 12, 13], $data['students']->pluck('idstudent')->sort()->values()->all());
+        $this->assertSame(['ICT 2A', 'SD2A', 'SD2B'], $data['classes']->values()->all());
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Jouw klas')
+            ->assertSee('ICT 2A')
+            ->assertSee('Privé Voorbeeld')
+            ->assertDontSee('ICT 2B')
+            ->assertDontSee('Alle leden');
+    }
+
+    public function test_teacher_group_roster_is_visible_without_student_profile_tables(): void
+    {
+        DB::statement('CREATE TABLE groep (idgroep INTEGER PRIMARY KEY, groepnaam TEXT, status TEXT)');
+        DB::statement('CREATE TABLE groep_has_lid (idgroep INTEGER, idlid INTEGER)');
+        DB::table('groep')->insert(['idgroep' => 1, 'groepnaam' => 'ICT 2A', 'status' => 'actief']);
+        DB::table('groep_has_lid')->insert([
+            ['idgroep' => 1, 'idlid' => 1],
+            ['idgroep' => 1, 'idlid' => 11],
+            ['idgroep' => 1, 'idlid' => 12],
+        ]);
+        Schema::drop('coach');
+        Schema::drop('student');
+
+        $data = app(DocentDashboard::class)->data(User::findOrFail(1), Request::create('/dashboard'));
+        $this->assertSame(['Ada', 'Bram'], $data['visibleGroupStudents']->pluck('voornaam')->all());
+
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('ICT 2A')
+            ->assertSee('Ada')
+            ->assertSee('Bram');
+    }
+
     public function test_dashboard_renders_escaped_records_and_student_detail(): void
     {
         $response = $this->actingAs(User::findOrFail(1))->get('/dashboard?student=11');
@@ -102,7 +156,7 @@ class DocentDashboardTest extends TestCase
     public function test_missing_coach_profile_and_empty_results_have_honest_states(): void
     {
         DB::table('coach')->where('lid_idlid', 1)->delete();
-        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('nog geen coachprofiel')->assertSee('Nog geen studenten gekoppeld');
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('nog geen coachprofiel')->assertSee('Nog geen leerlingen gekoppeld');
     }
 
     public function test_missing_coach_table_does_not_break_the_dashboard_or_student_creation(): void
@@ -112,7 +166,7 @@ class DocentDashboardTest extends TestCase
         $this->actingAs(User::findOrFail(1))->get('/dashboard')
             ->assertOk()
             ->assertSee('nog geen coachprofiel')
-            ->assertSee('Nog geen studenten gekoppeld');
+            ->assertSee('Nog geen leerlingen gekoppeld');
 
         $this->post('/docent/studenten', [])->assertForbidden();
     }
