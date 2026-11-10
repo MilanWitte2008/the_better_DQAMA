@@ -10,12 +10,9 @@
 <body class="login-body">
     <main class="login-shell">
         <section class="login-intro" aria-labelledby="welcome-title">
-            <a class="login-brand" href="{{ route('home') }}" aria-label="DQAMA startpagina">
-                <span class="login-brand-mark" aria-hidden="true">D</span>
-                <span>
-                    <strong>DQAMA</strong>
-                    <small>Ontwikkeling in beeld</small>
-                </span>
+            <a class="login-brand" href="{{ route('home') }}" aria-label="Firda startpagina">
+                <x-firda-wordmark class="firda-login" />
+                <span><small>Ontwikkeling in beeld</small></span>
             </a>
 
             <div class="intro-copy">
@@ -33,8 +30,7 @@
         <section class="login-form-side" aria-labelledby="login-title">
             <div class="login-form-wrap">
                 <div class="login-mobile-brand" aria-hidden="true">
-                    <span class="login-brand-mark">D</span>
-                    <strong>DQAMA</strong>
+                    <x-firda-wordmark class="firda-login" />
                 </div>
 
                 <p class="form-eyebrow">Welkom terug</p>

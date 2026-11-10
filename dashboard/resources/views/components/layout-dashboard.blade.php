@@ -66,7 +66,7 @@
     <div class="dashboard-shell">
         <aside class="sidebar">
             <a class="brand" href="{{ route('dashboard') }}">
-                <span class="brand-mark">IT</span>
+                <x-firda-wordmark class="firda-sidebar" />
                 <span><strong>Ontwikkelplatform</strong><small>Persoonlijke groei</small></span>
             </a>
             <div class="profile-chip">
