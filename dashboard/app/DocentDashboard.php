@@ -6,15 +6,26 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DocentDashboard
 {
-    /** Dezelfde rol- en begeleidingscontrole geldt voor lezen en wijzigen. */
-    public function studentIds(User $user): Collection
+    public function coachIds(User $user): Collection
     {
         abort_unless($user->dashboardRoleKey() === 'docent' && strtolower((string) $user->status) === 'actief', 403);
 
-        $coachIds = DB::table('coach')->where('lid_idlid', $user->getKey())->pluck('idcoach');
+        return Schema::hasTable('coach')
+            ? DB::table('coach')->where('lid_idlid', $user->getKey())->pluck('idcoach')
+            : collect();
+    }
+
+    /** Dezelfde rol- en begeleidingscontrole geldt voor lezen en wijzigen. */
+    public function studentIds(User $user): Collection
+    {
+        $coachIds = $this->coachIds($user);
+        if ($coachIds->isEmpty() || ! Schema::hasTable('student_coach')) {
+            return collect();
+        }
 
         return DB::table('student_coach')->whereIn('coach_idcoach', $coachIds)
             ->whereRaw('LOWER(status) = ?', ['actief'])
@@ -29,8 +40,32 @@ class DocentDashboard
      */
     public function data(User $user, Request $request): array
     {
+        $coachIds = $this->coachIds($user);
+
+        if (! Schema::hasTable('coach')) {
+            return [
+                'students' => collect(),
+                'filtered' => collect(),
+                'selected' => null,
+                'outcomes' => collect(),
+                'search' => '',
+                'class' => '',
+                'attention' => false,
+                'total' => 0,
+                'achieved' => 0,
+                'availableOutcomes' => collect(),
+                'classes' => collect(),
+                'attentionCount' => 0,
+                'coachLinked' => false,
+                'notesCount' => 0,
+                'notes' => collect(),
+                'upcomingCount' => 0,
+                'upcoming' => collect(),
+                'recent' => collect(),
+            ];
+        }
+
         $assigned = $this->studentIds($user);
-        $coachIds = DB::table('coach')->where('lid_idlid', $user->getKey())->pluck('idcoach');
         $students = DB::table('student as s')->join('lid as l', 'l.idlid', '=', 's.lid_idlid')
             ->whereIn('s.idstudent', $assigned)
             ->select('s.idstudent', 's.klas', 's.opleiding', 's.studentnummer', 'l.voornaam', 'l.achternaam', 'l.email', 'l.status')

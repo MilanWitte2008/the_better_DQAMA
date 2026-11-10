@@ -209,7 +209,7 @@
                                             <option value="{{ $id }}">{{ $label }}</option>
                                         @endforeach
                                     </select></label>
-                                <button type="submit" class="button dark">Leeruitkomst toevoegen</button>
+                                <button type="submit" class="button dark">Dossier bekijken</button>
                             </form>
                         @else<p class="center muted">Voeg eerst een student toe via Mijn studenten.</p>
                         @endif
@@ -230,101 +230,32 @@
                         <div>
                             <p class="eyebrow">STUDENTDOSSIER</p>
                             <h2>{{ $selected->voornaam }} {{ $selected->achternaam }}</h2>
-                            <p>{{ $selected->studentnummer }} · {{ $selected->opleiding }} · {{ $selected->email }}
-                            </p>
                         </div><a
                             href="{{ route('dashboard', request()->only(['q', 'klas', 'filter'])) }}#studenten">Sluiten
                             ×</a>
                     </div>
-                    <details class="edit-panel" open>
-                        <summary>Studentgegevens bewerken</summary>
-                        @include('dashboards.docent-form', [
-                            'formId' => 'student-' . $selected->idstudent,
-                            'action' => route('docent.students.update', $selected->idstudent),
-                            'method' => 'PUT',
-                            'fields' => [
-                                'klas' => ['label' => 'Klas', 'value' => $selected->klas, 'max' => 20],
-                                'opleiding' => [
-                                    'label' => 'Opleiding',
-                                    'value' => $selected->opleiding,
-                                    'max' => 50,
-                                ],
-                            ],
-                        ])
-                    </details>
-                    @if ($availableOutcomes->isNotEmpty())
-                        <details class="edit-panel" open>
-                            <summary>Leeruitkomst toevoegen</summary>
-                            @include('dashboards.docent-form', [
-                                'formId' => 'outcome-new',
-                                'action' => route('docent.outcomes.store', $selected->idstudent),
-                                'method' => 'POST',
-                                'fields' => [
-                                    'leeruitkomsten_leeruitkomsten_id' => [
-                                        'label' => 'Leeruitkomst',
-                                        'type' => 'select',
-                                        'options' => $availableOutcomes->mapWithKeys(
-                                                fn($item) => [
-                                                    $item->leeruitkomsten_id => $item->code . ' · ' . $item->titel,
-                                                ])->all(),
-                                        'required' => true,
-                                    ],
-                                ],
-                            ])
-                        </details>
-                    @endif
-                    <details class="edit-panel" @if (old('_form') === 'outcome-create' || $outcomes->where('student_idstudent', $selected->idstudent)->isEmpty()) open @endif>
-                        <summary>Nieuwe leeruitkomst maken</summary>
-                        <p class="footnote">Omschrijf wat de student moet leren. De status begint op Te doen. Markeer
-                            deze pas als Behaald wanneer de leeruitkomst is bereikt.</p>
-                        @include('dashboards.docent-form', [
-                            'formId' => 'outcome-create',
-                            'action' => route('docent.outcomes.create', $selected->idstudent),
-                            'method' => 'POST',
-                            'fields' => [
-                                'titel' => [
-                                    'label' => 'Titel van de leeruitkomst',
-                                    'required' => true,
-                                    'max' => 255,
-                                ],
-                                'omschrijving' => ['label' => 'Omschrijving (optioneel)', 'type' => 'textarea'],
-                            ],
-                        ])
-                    </details>
-                    <div class="outcomes">
+                    <dl class="student-facts">
+                        <div><dt>Studentnummer</dt><dd>{{ $selected->studentnummer ?: 'Niet bekend' }}</dd></div>
+                        <div><dt>Klas</dt><dd>{{ $selected->klas ?: 'Geen klas' }}</dd></div>
+                        <div><dt>Opleiding</dt><dd>{{ $selected->opleiding ?: 'Geen opleiding' }}</dd></div>
+                        <div><dt>E-mailadres</dt><dd>{{ $selected->email ?: 'Niet bekend' }}</dd></div>
+                    </dl>
+                    <h3 class="dossier-section-title">Leeruitkomsten</h3>
+                    <div class="dossier-outcomes">
                         @forelse($outcomes->where('student_idstudent', $selected->idstudent) as $outcome)
-                            <article><small>{{ $outcome->code }}</small>
-                                <h3>{{ $outcome->titel }}</h3><span
-                                    class="pill">{{ $outcome->status ?: 'Geen status' }}</span><small>Bijgewerkt:
-                                    {{ $dateLabel($outcome->laatste_update) }}</small>
-                                <details class="edit-panel" @if (old('_form') === 'outcome-' . $outcome->id_leeruitkomsten) open @endif>
-                                    <summary>Voortgang bewerken</summary>
-                                    @include('dashboards.docent-form', [
-                                        'formId' => 'outcome-' . $outcome->id_leeruitkomsten,
-                                        'action' => route('docent.outcomes.update', $outcome->id_leeruitkomsten),
-                                        'method' => 'PUT',
-                                        'fields' => [
-                                            'status' => [
-                                                'label' => 'Status',
-                                                'type' => 'select',
-                                                'value' => ucfirst(strtolower($outcome->status ?? 'Te doen')),
-                                                'options' => [
-                                                    'Te doen' => 'Te doen',
-                                                    'Bezig' => 'Bezig',
-                                                    'Behaald' => 'Behaald',
-                                                ],
-                                                'required' => true,
-                                            ],
-                                            'opmerking' => [
-                                                'label' => 'Toelichting',
-                                                'type' => 'textarea',
-                                                'value' => $outcome->opmerking,
-                                            ],
-                                        ],
-                                    ])
-                                </details>
-                        </article>@empty<p class="empty">Voor deze student zijn nog geen leeruitkomsten
-                                vastgelegd.</p>
+                            <article class="dossier-outcome">
+                                <div class="dossier-outcome-main">
+                                    <small>{{ $outcome->code }}</small>
+                                    <h4>{{ $outcome->titel }}</h4>
+                                    @if($outcome->opmerking)
+                                        <p class="preserve">{{ $outcome->opmerking }}</p>
+                                    @endif
+                                </div>
+                                <span @class(['pill', 'dossier-status', 'dossier-status-done' => strtolower($outcome->status ?? '') === 'behaald', 'dossier-status-active' => strtolower($outcome->status ?? '') === 'bezig'])>{{ $outcome->status ?: 'Geen status' }}</span>
+                                <div class="dossier-updated"><span>Bijgewerkt</span><time>{{ $dateLabel($outcome->laatste_update) }}</time></div>
+                            </article>
+                        @empty
+                            <p class="empty">Voor deze student zijn nog geen leeruitkomsten vastgelegd.</p>
                         @endforelse
                     </div>
                 </section>

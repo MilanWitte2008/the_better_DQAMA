@@ -77,10 +77,7 @@ class Glob
             if ($delimiter === $car || '.' === $car || '(' === $car || ')' === $car || '|' === $car || '+' === $car || '^' === $car || '$' === $car) {
                 $regex .= "\\$car";
             } elseif ('*' === $car) {
-                if ($escaping || $strictWildcardSlash || !str_ends_with($regex, '.*')) {
-                    // ".*.*" matches the same as ".*" but backtracks quadratically
-                    $regex .= $escaping ? '\\*' : ($strictWildcardSlash ? '[^/]*' : '.*');
-                }
+                $regex .= $escaping ? '\\*' : ($strictWildcardSlash ? '[^/]*' : '.*');
             } elseif ('?' === $car) {
                 $regex .= $escaping ? '\\?' : ($strictWildcardSlash ? '[^/]' : '.');
             } elseif ('{' === $car) {

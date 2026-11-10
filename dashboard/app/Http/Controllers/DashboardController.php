@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
@@ -39,12 +38,6 @@ class DashboardController extends Controller
                 DB::table('leeruitkomsten_has_lid')->insertOrIgnore($assignments);
             }
         }
-
-        // Het beheerdersoverzicht haalt zelf filters en statistieken op.
-        $user = Auth::user()->load('rol');
-        $roleKey = $user->dashboardRoleKey();
-
-        abort_unless($roleKey && strtolower((string) $user->status) === 'actief', 403, 'Je account heeft geen geldige dashboardrol.');
 
         if ($roleKey === 'beheerder') {
             return app(ApplicationAdminController::class)->index($request);

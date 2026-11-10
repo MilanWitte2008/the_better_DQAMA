@@ -8,7 +8,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -25,56 +24,15 @@ class DocentController extends Controller
         return redirect()->to(route('dashboard', $query).'#'.$section)->with('docent_success', 'Wijzigingen opgeslagen.');
     }
 
-    /** Maak account, studentprofiel en begeleiding samen aan, uitsluitend met de studentrol. */
+    /** Oude formulieren mogen de centrale accountadministratie niet omzeilen. */
     public function storeStudent(Request $request): RedirectResponse
     {
-        app(DocentDashboard::class)->studentIds($request->user());
-        $coachId = DB::table('coach')->where('lid_idlid', $request->user()->getKey())->orderBy('idcoach')->value('idcoach');
-        abort_unless($coachId, 403, 'Een coachprofiel is nodig om studenten toe te voegen.');
-        $data = $request->validate([
-            'voornaam' => ['required', 'string', 'max:50'],
-            'achternaam' => ['required', 'string', 'max:50'],
-            'email' => ['required', 'email', 'max:100', Rule::unique('lid', 'email')],
-            'password' => ['required', 'string', 'min:8', 'max:72', 'confirmed'],
-            'studentnummer' => ['nullable', 'string', 'max:20', Rule::unique('student', 'studentnummer')],
-            'klas' => ['nullable', 'string', 'max:20'],
-            'opleiding' => ['nullable', 'string', 'max:50'],
-        ]);
-        $roleId = DB::table('rol')->whereRaw('LOWER(naam) = ?', ['student'])->value('idrol');
-        abort_unless($roleId, 422, 'De studentrol ontbreekt. Vraag de beheerder deze toe te voegen.');
-        $studentId = DB::transaction(function () use ($data, $coachId, $roleId): int {
-            $memberId = DB::table('lid')->insertGetId([
-                'voornaam' => $data['voornaam'], 'achternaam' => $data['achternaam'],
-                'email' => $data['email'], 'wachtwoord' => Hash::make($data['password']),
-                'status' => 'actief', 'rol_idrol' => $roleId, 'aangemaakt_datum' => now(),
-            ], 'idlid');
-            $studentId = DB::table('student')->insertGetId([
-                'lid_idlid' => $memberId, 'studentnummer' => $data['studentnummer'] ?? null,
-                'klas' => $data['klas'] ?? null, 'opleiding' => $data['opleiding'] ?? null,
-                'startdatum' => today()->toDateString(),
-            ], 'idstudent');
-            DB::table('student_coach')->insert([
-                'student_idstudent' => $studentId, 'coach_idcoach' => $coachId,
-                'status' => 'actief', 'startdatum' => today()->toDateString(),
-            ]);
-
-            return $studentId;
-        });
-
-        return redirect()->to(route('dashboard', ['student' => $studentId]).'#student-detail')
-            ->with('docent_success', 'Studentaccount aangemaakt en aan jouw begeleiding gekoppeld.');
+        abort(403, 'Studentaccounts worden beheerd door de applicatiebeheerder.');
     }
 
     public function updateStudent(Request $request, int $student): RedirectResponse
     {
-        $this->student($request, $student);
-        $data = $request->validate([
-            'klas' => ['nullable', 'string', 'max:20'],
-            'opleiding' => ['nullable', 'string', 'max:50'],
-        ]);
-        DB::table('student')->where('idstudent', $student)->update($data);
-
-        return $this->done('student-detail', ['student' => $student]);
+        abort(403, 'Studentgegevens worden beheerd door de applicatiebeheerder.');
     }
 
     /** Verwijderen uit Mijn studenten beëindigt alleen de eigen begeleiding. */
@@ -82,7 +40,7 @@ class DocentController extends Controller
     {
         $this->student($request, $student);
         DB::table('student_coach')->where('student_idstudent', $student)
-            ->whereIn('coach_idcoach', DB::table('coach')->where('lid_idlid', $request->user()->getKey())->select('idcoach'))
+            ->whereIn('coach_idcoach', app(DocentDashboard::class)->coachIds($request->user()))
             ->whereRaw('LOWER(status) = ?', ['actief'])
             ->where(fn ($q) => $q->whereNull('startdatum')->orWhereDate('startdatum', '<=', today()))
             ->where(fn ($q) => $q->whereNull('einddatum')->orWhereDate('einddatum', '>=', today()))
@@ -136,7 +94,7 @@ class DocentController extends Controller
         $ids = app(DocentDashboard::class)->studentIds($request->user());
         $query = DB::table('begeleidingsnotitie')->where('id_notitie', $note)
             ->whereIn('idstudent', $ids)
-            ->whereIn('idcoach', DB::table('coach')->where('lid_idlid', $request->user()->getKey())->select('idcoach'));
+            ->whereIn('idcoach', app(DocentDashboard::class)->coachIds($request->user()));
         abort_unless((clone $query)->exists(), 404);
 
         return $query;
@@ -146,7 +104,7 @@ class DocentController extends Controller
     {
         $data = $request->validate(['idstudent' => ['required', 'integer'], 'inhoud' => ['required', 'string', 'max:10000'], 'type' => ['required', Rule::in(['Notitie', 'Voortgang', 'Afspraak'])]]);
         $this->student($request, (int) $data['idstudent']);
-        $coachId = DB::table('coach')->where('lid_idlid', $request->user()->getKey())->orderBy('idcoach')->value('idcoach');
+        $coachId = app(DocentDashboard::class)->coachIds($request->user())->first();
         DB::table('begeleidingsnotitie')->insert($data + ['idcoach' => $coachId, 'datum' => now()]);
 
         return $this->done('notities');
