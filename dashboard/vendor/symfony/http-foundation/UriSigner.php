@@ -182,7 +182,7 @@ class UriSigner
             return self::STATUS_INVALID;
         }
 
-        if (null === $expiration = $params[$this->expirationParameter] ?? null) {
+        if (!$expiration = $params[$this->expirationParameter] ?? false) {
             return self::STATUS_VALID;
         }
 

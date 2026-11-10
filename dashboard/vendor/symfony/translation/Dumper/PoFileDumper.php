@@ -30,8 +30,6 @@ class PoFileDumper extends FileDumper
         $output .= "\n";
 
         $newLine = false;
-        $isIntlDomain = str_ends_with($domain, MessageCatalogue::INTL_DOMAIN_SUFFIX);
-
         foreach ($messages->all($domain) as $source => $target) {
             if ($newLine) {
                 $output .= "\n";
@@ -50,10 +48,9 @@ class PoFileDumper extends FileDumper
                 $output .= $this->formatComments(implode(' ', (array) $metadata['sources']), ':');
             }
 
-            // in an ICU domain the pipe is an ordinary character, pluralization is expressed by the message itself
-            $sourceRules = $isIntlDomain ? [] : $this->getStandardRules($source);
-            $targetRules = $isIntlDomain ? [] : $this->getStandardRules($target);
-            if (2 == \count($sourceRules) && $targetRules) {
+            $sourceRules = $this->getStandardRules($source);
+            $targetRules = $this->getStandardRules($target);
+            if (2 == \count($sourceRules) && [] !== $targetRules) {
                 $output .= \sprintf('msgid "%s"'."\n", $this->escape($sourceRules[0]));
                 $output .= \sprintf('msgid_plural "%s"'."\n", $this->escape($sourceRules[1]));
                 foreach ($targetRules as $i => $targetRule) {

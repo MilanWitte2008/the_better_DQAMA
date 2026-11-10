@@ -13,7 +13,7 @@
         </div>
     @endunless
     <section class="panel team-group-panel" id="groepen" data-dashboard-section="groepen">
-        <h3>Studenten in deze groep</h3>
+        <h3>Groepsleden in deze groep</h3>
         <form class="team-filters" method="GET" action="{{ route('dashboard') }}">
             <label>
                 <span>Groep</span>
@@ -31,41 +31,123 @@
         </form>
 
         @if ($selectedGroup)
+            <form class="team-group-delete-form" method="POST"
+                action="{{ route('teammanager.groups.destroy', $selectedGroup->idgroep) }}"
+                onsubmit="return confirm('Weet je zeker dat je deze groep wilt verwijderen? De groepskoppelingen verdwijnen, maar accounts en hun gegevens blijven behouden.')">
+                @csrf
+                @method('DELETE')
+                <button class="team-remove-button" type="submit">Groep verwijderen</button>
+            </form>
+        @endif
+
+        @if (session('success'))
+            <p class="info-strip" role="status">{{ session('success') }}</p>
+        @endif
+
+        <form class="team-action-form" method="POST" action="{{ route('teammanager.groups.store') }}">
+            @csrf
+            <label for="new-group-name">Nieuwe groep</label>
+            <input id="new-group-name" name="groepnaam" type="text" maxlength="45" required value="{{ old('groepnaam') }}" placeholder="Bijvoorbeeld: ICT 2A">
+            @error('groepnaam')
+                <small class="form-error">{{ $message }}</small>
+            @enderror
+            <button class="primary-button" type="submit">Groep aanmaken</button>
+        </form>
+
+        @if ($selectedGroup)
             <p class="team-selection-summary">
                 {{ $selectedGroup->groepnaam ?: 'Groep ' . $selectedGroup->idgroep }} ·
-                {{ $students->count() }} {{ $students->count() === 1 ? 'student' : 'studenten' }}
+                {{ $groupMembers->count() }} {{ $groupMembers->count() === 1 ? 'groepslid' : 'groepsleden' }}
             </p>
+            <form class="team-action-form" method="POST" action="{{ route('teammanager.groups.members.store', $selectedGroup->idgroep) }}">
+                @csrf
+                <label for="group-member">Student of docent toevoegen aan deze groep</label>
+                <select id="group-member" name="lid_idlid" required @disabled($availableStudents->isEmpty() && $availableTeachers->isEmpty())>
+                    @if ($availableStudents->isNotEmpty() || $availableTeachers->isNotEmpty())
+                        <option value="" disabled @selected(! old('lid_idlid'))>Kies een student of docent</option>
+                    @endif
+                    @if ($availableStudents->isNotEmpty())
+                        <optgroup label="Studenten">
+                            @foreach ($availableStudents as $student)
+                                <option value="{{ $student->idlid }}" @selected(old('lid_idlid') == $student->idlid)>
+                                    {{ trim(($student->voornaam ?? '') . ' ' . ($student->achternaam ?? '')) ?: 'Naam ontbreekt' }}
+                                    · {{ $student->email }}
+                                </option>
+                            @endforeach
+                        </optgroup>
+                    @endif
+                    @if ($availableTeachers->isNotEmpty())
+                        <optgroup label="Docenten">
+                            @foreach ($availableTeachers as $teacher)
+                                <option value="{{ $teacher->idlid }}" @selected(old('lid_idlid') == $teacher->idlid)>
+                                    {{ trim(($teacher->voornaam ?? '') . ' ' . ($teacher->achternaam ?? '')) ?: 'Naam ontbreekt' }}
+                                    · {{ $teacher->email }}
+                                </option>
+                            @endforeach
+                        </optgroup>
+                    @endif
+                    @if ($availableStudents->isEmpty() && $availableTeachers->isEmpty())
+                        <option value="">Geen actieve studenten of docenten meer beschikbaar</option>
+                    @endif
+                </select>
+                @error('lid_idlid')
+                    <small class="form-error">{{ $message }}</small>
+                @enderror
+                <button class="primary-button" type="submit" @disabled($availableStudents->isEmpty() && $availableTeachers->isEmpty())>Lid toevoegen</button>
+            </form>
             <div class="table-scroll">
                 <table class="data-table team-student-table" data-team-student-table>
                     <thead>
                         <tr>
-                            <th scope="col">Student</th>
+                            <th scope="col">Groepslid</th>
                             <th scope="col">Groep</th>
                             <th scope="col">Voortgang</th>
                             <th scope="col">Leeruitkomsten behaald</th>
                             <th scope="col">Laatste update</th>
+                            <th scope="col">Acties</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse ($students as $student)
-                            <tr>
-                                <th scope="row">{{ $student->naam ?: 'Naam ontbreekt' }}</th>
+                        @forelse ($groupMembers as $member)
+                            <tr @if ($member->rolnaam === 'Student') data-report-row @endif>
+                                <th scope="row" @if ($member->rolnaam === 'Student') data-report-name="{{ $member->naam ?: 'Naam ontbreekt' }}" @endif>
+                                    {{ $member->naam ?: 'Naam ontbreekt' }}
+                                    <small>{{ $member->rolnaam }}</small>
+                                </th>
                                 <td>{{ $selectedGroup->groepnaam ?: 'Groep ' . $selectedGroup->idgroep }}</td>
+                                @if ($member->rolnaam === 'Student')
+                                    <td>
+                                        <strong class="team-student-progress">{{ $member->voortgang }}%</strong>
+                                        <span class="team-progress-track" role="img" aria-label="{{ $member->voortgang }} procent voortgang">
+                                            <span style="width: {{ $member->voortgang }}%"></span>
+                                        </span>
+                                    </td>
+                                    <td>{{ $member->completed_outcomes }} / {{ $member->total_outcomes }}</td>
+                                    <td>
+                                        {{ $member->laatste_update
+                                            ? \Illuminate\Support\Carbon::parse($member->laatste_update)->format('d-m-Y')
+                                            : 'Geen update' }}
+                                    </td>
+                                @else
+                                    <td>—</td>
+                                    <td>—</td>
+                                    <td>—</td>
+                                @endif
                                 <td>
-                                    <strong class="team-student-progress">{{ $student->voortgang }}%</strong>
-                                    <span class="team-progress-track" role="img" aria-label="{{ $student->voortgang }} procent voortgang">
-                                        <span style="width: {{ $student->voortgang }}%"></span>
-                                    </span>
-                                </td>
-                                <td>{{ $student->completed_outcomes }} / {{ $student->total_outcomes }}</td>
-                                <td>
-                                    {{ $student->laatste_update
-                                        ? \Illuminate\Support\Carbon::parse($student->laatste_update)->format('d-m-Y')
-                                        : 'Geen update' }}
+                                    <form method="POST"
+                                        action="{{ route('teammanager.groups.members.destroy', [$selectedGroup->idgroep, $member->idlid]) }}"
+                                        onsubmit="return confirm('Wil je dit groepslid uit de groep verwijderen? Het account en de gegevens blijven behouden.')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="team-remove-button" type="submit"
+                                            aria-label="Verwijder {{ $member->naam ?: 'groepslid' }} uit deze groep">
+                                            Verwijderen
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5">Er zijn nog geen studenten aan deze groep gekoppeld.</td></tr>
+                            <tr><td colspan="6">Er zijn nog geen studenten of docenten aan deze groep gekoppeld.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -77,17 +159,72 @@
 
     <section class="panel team-outcomes-panel" data-dashboard-section="groepen">
         <h3>Voortgang per leeruitkomst (groep)</h3>
-        @forelse ($outcomeProgress as $outcome)
-            <div class="team-outcome-row">
-                <div><span>{{ $outcome->label ?: 'Leeruitkomst zonder titel' }}</span><strong>{{ $outcome->progress }}%</strong></div>
-                <div class="team-outcome-track" role="img" aria-label="{{ $outcome->label }}: {{ $outcome->progress }} procent">
-                    <span style="width: {{ $outcome->progress }}%"></span>
-                </div>
+        @if ($outcomeProgress->isNotEmpty())
+            <div class="scroll-field">
+                <ul class="goal-list">
+                    @foreach ($outcomeProgress as $outcome)
+                        <li class="goal-item">
+                            <button
+                                class="goal-trigger"
+                                type="button"
+                                data-outcome-title="{{ $outcome->label ?: 'Leeruitkomst zonder titel' }}"
+                                data-outcome-status="{{ $outcome->progress }}% behaald binnen de groep"
+                                data-outcome-description="{{ $outcome->description ?? '' }}"
+                                aria-haspopup="dialog"
+                                aria-controls="team-outcome-dialog"
+                            >
+                                <span class="goal-copy">
+                                    <strong>{{ $outcome->label ?: 'Leeruitkomst zonder titel' }}</strong>
+                                </span>
+                                <span class="goal-tag">{{ $outcome->progress }}%</span>
+                            </button>
+                            @if ($outcome->description)
+                                <small class="widget-detail">{{ $outcome->description }}</small>
+                            @endif
+                            <small class="widget-detail">{{ $outcome->completed }} / {{ $outcome->total }} studenten hebben deze leeruitkomst behaald.</small>
+                        </li>
+                    @endforeach
+                </ul>
             </div>
-        @empty
+        @else
             <p class="muted-line">Er zijn nog geen leeruitkomsten voor deze groep geregistreerd.</p>
-        @endforelse
+        @endif
     </section>
+
+    <dialog class="outcome-dialog" id="team-outcome-dialog" aria-labelledby="team-outcome-dialog-title">
+        <div class="outcome-dialog-header">
+            <h2 id="team-outcome-dialog-title"></h2>
+            <button class="outcome-dialog-close" type="button" aria-label="Sluiten" data-team-outcome-dialog-close>&times;</button>
+        </div>
+        <p class="outcome-dialog-status" id="team-outcome-dialog-status"></p>
+        <p class="outcome-dialog-description" id="team-outcome-dialog-description"></p>
+    </dialog>
+
+    <script>
+        const teamOutcomeDialog = document.getElementById('team-outcome-dialog');
+        const teamOutcomeDialogTitle = document.getElementById('team-outcome-dialog-title');
+        const teamOutcomeDialogStatus = document.getElementById('team-outcome-dialog-status');
+        const teamOutcomeDialogDescription = document.getElementById('team-outcome-dialog-description');
+
+        document.querySelectorAll('.team-outcomes-panel .goal-trigger').forEach((trigger) => {
+            trigger.addEventListener('click', () => {
+                teamOutcomeDialogTitle.textContent = trigger.dataset.outcomeTitle;
+                teamOutcomeDialogStatus.textContent = trigger.dataset.outcomeStatus;
+                teamOutcomeDialogDescription.textContent = trigger.dataset.outcomeDescription || 'Geen omschrijving beschikbaar.';
+                teamOutcomeDialog.showModal();
+            });
+        });
+
+        document.querySelector('[data-team-outcome-dialog-close]').addEventListener('click', () => {
+            teamOutcomeDialog.close();
+        });
+
+        teamOutcomeDialog.addEventListener('click', (event) => {
+            if (event.target === teamOutcomeDialog) {
+                teamOutcomeDialog.close();
+            }
+        });
+    </script>
 
     {{-- Toon de huidige voortgang; de database bewaart geen historische voortgangsmetingen. --}}
     <div class="content-grid team-insights-grid" data-dashboard-section="groepen">
@@ -203,8 +340,10 @@
             const rows = [
                 ['Student', 'Groep', 'Voortgang', 'Leeruitkomsten behaald', 'Laatste update'],
                 ...Array.from(teamStudentTable.querySelectorAll('tbody tr'))
-                    .filter((row) => row.cells.length === 5)
-                    .map((row) => Array.from(row.cells, (cell) => cell.innerText.trim().replace(/\s+/g, ' '))),
+                    .filter((row) => row.hasAttribute('data-report-row'))
+                    .map((row) => Array.from(row.cells).slice(0, 5).map((cell) => (
+                        cell.dataset.reportName ?? cell.innerText.trim().replace(/\s+/g, ' ')
+                    ))),
             ];
             const csv = `\uFEFF${rows.map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(';')).join('\r\n')}`;
             const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));

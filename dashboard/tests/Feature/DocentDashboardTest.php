@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\MessageBag;
 use Illuminate\Support\ViewErrorBag;
 use Tests\TestCase;
@@ -102,6 +103,18 @@ class DocentDashboardTest extends TestCase
     {
         DB::table('coach')->where('lid_idlid', 1)->delete();
         $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('nog geen coachprofiel')->assertSee('Nog geen studenten gekoppeld');
+    }
+
+    public function test_missing_coach_table_does_not_break_the_dashboard_or_student_creation(): void
+    {
+        Schema::drop('coach');
+
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('nog geen coachprofiel')
+            ->assertSee('Nog geen studenten gekoppeld');
+
+        $this->post('/docent/studenten', [])->assertForbidden();
     }
 
     public function test_inactive_docent_is_forbidden_and_guests_need_login(): void
