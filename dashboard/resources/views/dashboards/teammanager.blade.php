@@ -6,6 +6,12 @@
 @section('welcome-subtitle', 'Bekijk de voortgang van studenten en groepen binnen je team.')
 
 @section('content')
+    @unless ($groupsAvailable)
+        <div class="panel" role="status">
+            Groepsbeheer is nog niet ingericht in deze database. De tabellen voor groepen en groepsleden ontbreken.
+            Zodra deze zijn ingericht, verschijnt hier de voortgang van je gekoppelde groepen.
+        </div>
+    @endunless
     <section class="panel team-group-panel" id="groepen" data-dashboard-section="groepen">
         <h3>Groepsleden in deze groep</h3>
         <form class="team-filters" method="GET" action="{{ route('dashboard') }}">
@@ -23,6 +29,16 @@
             </label>
             <button class="primary-button team-filter-button" type="submit" @disabled($groups->isEmpty())>Toon groep</button>
         </form>
+
+        @if ($selectedGroup)
+            <form class="team-group-delete-form" method="POST"
+                action="{{ route('teammanager.groups.destroy', $selectedGroup->idgroep) }}"
+                onsubmit="return confirm('Weet je zeker dat je deze groep wilt verwijderen? De groepskoppelingen verdwijnen, maar accounts en hun gegevens blijven behouden.')">
+                @csrf
+                @method('DELETE')
+                <button class="team-remove-button" type="submit">Groep verwijderen</button>
+            </form>
+        @endif
 
         @if (session('success'))
             <p class="info-strip" role="status">{{ session('success') }}</p>

@@ -20,6 +20,8 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('aut
 Route::post('/dashboard/leerdoelen', [StudentDashboardController::class, 'storeGoal'])->middleware('auth')->name('student.goals.store');
 Route::post('/dashboard/reflecties', [StudentDashboardController::class, 'storeReflection'])->middleware('auth')->name('student.reflections.store');
 Route::post('/teamleider/groepen', [TeamManagerDashboardController::class, 'storeGroup'])->middleware('auth')->name('teammanager.groups.store');
+Route::delete('/teamleider/groepen/{group}', [TeamManagerDashboardController::class, 'destroyGroup'])
+    ->whereNumber('group')->middleware('auth')->name('teammanager.groups.destroy');
 Route::post('/teamleider/groepen/{group}/leden', [TeamManagerDashboardController::class, 'storeGroupMember'])
     ->whereNumber('group')->middleware('auth')->name('teammanager.groups.members.store');
 Route::delete('/teamleider/groepen/{group}/leden/{member}', [TeamManagerDashboardController::class, 'destroyGroupMember'])

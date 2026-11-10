@@ -546,3 +546,25 @@ body {
         font-size: 27px;
     }
 }
+
+/* Het Firda-woordmerk behoudt zijn verhouding op desktop en mobiel. */
+.login-firda-logo {
+    display: block;
+    width: 210px;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+.login-brand { flex-wrap: wrap; }
+.login-mobile-brand .login-firda-logo {
+    width: 180px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: #0b2942;
+}
+
+.login-firda-logo, .login-mobile-brand .login-firda-logo {
+    width:110px;height:auto;padding:0;border-radius:12px;background:none;
+    box-shadow:0 4px 16px #001d3220;
+}
+.beheer-brand .firda-nav-logo {width:56px;height:auto;border-radius:8px;flex-shrink:0;}
