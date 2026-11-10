@@ -14,8 +14,8 @@
 <div class="beheer-shell">
     <aside class="beheer-sidebar" aria-label="Zijbalk">
         <a class="beheer-brand" href="{{ route('dashboard') }}">
-            <span class="brand-icon"><img src="{{ asset('icons/tabler/layout-dashboard.svg') }}" alt="" width="27" height="27"></span>
-            <span><strong>ITIG<span class="brand-dot">.</span></strong><small>Ontwikkelplatform</small></span>
+            <x-firda-wordmark class="firda-sidebar" />
+            <span><strong>Firda</strong><small>Ontwikkelplatform</small></span>
         </a>
         <span class="sidebar-caption">BEHEEROMGEVING</span>
         <nav class="beheer-nav" aria-label="Hoofdnavigatie">
