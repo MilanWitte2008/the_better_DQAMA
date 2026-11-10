@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0b2942">
-    <title>Inloggen | Firda</title>
-    @vite('resources/css/app.css')
+    <title>Inloggen | DQAMA</title>
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body class="login-body">
     <main class="login-shell">

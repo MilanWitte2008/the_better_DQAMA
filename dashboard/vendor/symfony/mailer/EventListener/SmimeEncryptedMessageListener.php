@@ -47,7 +47,7 @@ final class SmimeEncryptedMessageListener implements EventSubscriberInterface
             }
             $certificatePaths[] = $certificatePath;
         }
-        if (!$certificatePaths) {
+        if (0 === \count($certificatePaths)) {
             return;
         }
         $encrypter = new SMimeEncrypter($certificatePaths, $this->cipher);

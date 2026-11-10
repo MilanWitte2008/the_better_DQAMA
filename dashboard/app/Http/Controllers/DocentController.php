@@ -40,7 +40,7 @@ class DocentController extends Controller
     {
         $this->student($request, $student);
         DB::table('student_coach')->where('student_idstudent', $student)
-            ->whereIn('coach_idcoach', DB::table('coach')->where('lid_idlid', $request->user()->getKey())->select('idcoach'))
+            ->whereIn('coach_idcoach', app(DocentDashboard::class)->coachIds($request->user()))
             ->whereRaw('LOWER(status) = ?', ['actief'])
             ->where(fn ($q) => $q->whereNull('startdatum')->orWhereDate('startdatum', '<=', today()))
             ->where(fn ($q) => $q->whereNull('einddatum')->orWhereDate('einddatum', '>=', today()))
@@ -94,7 +94,7 @@ class DocentController extends Controller
         $ids = app(DocentDashboard::class)->studentIds($request->user());
         $query = DB::table('begeleidingsnotitie')->where('id_notitie', $note)
             ->whereIn('idstudent', $ids)
-            ->whereIn('idcoach', DB::table('coach')->where('lid_idlid', $request->user()->getKey())->select('idcoach'));
+            ->whereIn('idcoach', app(DocentDashboard::class)->coachIds($request->user()));
         abort_unless((clone $query)->exists(), 404);
 
         return $query;
@@ -104,7 +104,7 @@ class DocentController extends Controller
     {
         $data = $request->validate(['idstudent' => ['required', 'integer'], 'inhoud' => ['required', 'string', 'max:10000'], 'type' => ['required', Rule::in(['Notitie', 'Voortgang', 'Afspraak'])]]);
         $this->student($request, (int) $data['idstudent']);
-        $coachId = DB::table('coach')->where('lid_idlid', $request->user()->getKey())->orderBy('idcoach')->value('idcoach');
+        $coachId = app(DocentDashboard::class)->coachIds($request->user())->first();
         DB::table('begeleidingsnotitie')->insert($data + ['idcoach' => $coachId, 'datum' => now()]);
 
         return $this->done('notities');
