@@ -107,8 +107,29 @@
                 </div>
                 <div class="topbar-actions">
                     @if ($currentRoleKey !== 'beheerder')
-                        <label class="search-box"><span>⌕</span><input type="search" placeholder="Zoeken..."></label>
-                        <span class="notification" aria-label="Meldingen">♧<i>3</i></span>
+                        <div class="notification-wrapper">
+                            <button class="notification" type="button" aria-label="Meldingen"
+                                aria-expanded="false" aria-controls="notification-panel"
+                                data-notification-toggle>
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+                                    <path d="M10 21h4" />
+                                </svg>
+                            </button>
+                            <section class="notification-panel" id="notification-panel" aria-label="Meldingen"
+                                data-notification-panel aria-live="polite" hidden>
+                                <div class="notification-panel-heading">
+                                    <span class="notification-panel-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none">
+                                            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+                                            <path d="M10 21h4" />
+                                        </svg>
+                                    </span>
+                                    <h2>Meldingen</h2>
+                                </div>
+                                <p class="notification-empty">Je bent helemaal bij. Er zijn geen nieuwe meldingen.</p>
+                            </section>
+                        </div>
                     @endif
                     <span
                         class="avatar avatar-light">{{ strtoupper(substr(auth()->user()->voornaam ?? 'A', 0, 1) . substr(auth()->user()->achternaam ?? 'V', 0, 1)) }}</span>
@@ -168,6 +189,30 @@
             if (initialButton && document.querySelector('[data-dashboard-section]')) {
                 initialButton.click();
             }
+
+            const notificationToggle = document.querySelector('[data-notification-toggle]');
+            const notificationPanel = document.querySelector('[data-notification-panel]');
+
+            notificationToggle?.addEventListener('click', () => {
+                const isExpanded = notificationToggle.getAttribute('aria-expanded') === 'true';
+                notificationToggle.setAttribute('aria-expanded', String(!isExpanded));
+                notificationPanel.hidden = isExpanded;
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!event.target.closest('.notification-wrapper')) {
+                    notificationToggle?.setAttribute('aria-expanded', 'false');
+                    if (notificationPanel) notificationPanel.hidden = true;
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && notificationToggle?.getAttribute('aria-expanded') === 'true') {
+                    notificationToggle.setAttribute('aria-expanded', 'false');
+                    notificationPanel.hidden = true;
+                    notificationToggle.focus();
+                }
+            });
         </script>
     @endif
 </body>
