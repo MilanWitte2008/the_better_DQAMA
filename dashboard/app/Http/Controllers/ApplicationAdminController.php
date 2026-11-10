@@ -94,6 +94,9 @@ class ApplicationAdminController extends Controller
     {
         return view('dashboards.admin-member-form', [
             'member' => $member, 'roles' => Role::orderBy('naam')->get(), 'roleKey' => 'beheerder',
+            'hasStudentProfiles' => Schema::hasTable('student'),
+            'studentProfile' => $member->exists && Schema::hasTable('student')
+                ? DB::table('student')->where('lid_idlid', $member->getKey())->first() : null,
         ]);
     }
 
@@ -102,7 +105,7 @@ class ApplicationAdminController extends Controller
     {
         $this->authorizeAdmin($request);
         $member = new User;
-        $this->saveMember($request, $member);
+        DB::transaction(fn () => $this->saveMember($request, $member));
 
         return redirect()->route('dashboard')->with('success', 'Gebruiker toegevoegd.');
     }
@@ -111,7 +114,7 @@ class ApplicationAdminController extends Controller
     public function update(Request $request, User $member)
     {
         $this->authorizeAdmin($request);
-        $this->saveMember($request, $member);
+        DB::transaction(fn () => $this->saveMember($request, $member));
 
         return redirect()->to(route('dashboard').'#gebruikers')->with('success', 'Gebruiker bijgewerkt.');
     }
@@ -142,6 +145,9 @@ class ApplicationAdminController extends Controller
     // Gebruik deze controles bij toevoegen en bij aanpassen.
     private function saveMember(Request $request, User $member): void
     {
+        $hasStudentProfiles = Schema::hasTable('student');
+        $studentProfile = $member->exists && $hasStudentProfiles
+            ? DB::table('student')->where('lid_idlid', $member->getKey())->first() : null;
         $data = $request->validate([
             'voornaam' => ['required', 'string', 'max:50'],
             'achternaam' => ['required', 'string', 'max:50'],
@@ -149,6 +155,11 @@ class ApplicationAdminController extends Controller
             'rol_idrol' => ['required', 'integer', 'exists:rol,idrol'],
             'status' => ['required', Rule::in(['actief', 'inactief'])],
             'password' => [$member->exists ? 'nullable' : 'required', 'string', 'min:12', 'max:128', 'confirmed'],
+            'klas' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'opleiding' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'studentnummer' => $hasStudentProfiles
+                ? ['sometimes', 'nullable', 'string', 'max:20', Rule::unique('student', 'studentnummer')->ignore($studentProfile?->idstudent, 'idstudent')]
+                : ['prohibited'],
         ]);
         // De beheerder mag de eigen rol niet veranderen of het eigen account uitzetten.
         if ($member->exists && $member->is($request->user())) {
@@ -168,11 +179,22 @@ class ApplicationAdminController extends Controller
             $member->aangemaakt_datum = now();
         }
         $member->save();
+        $isStudent = strtolower((string) Role::whereKey($member->rol_idrol)->value('naam')) === 'student';
+        if ($hasStudentProfiles && ($isStudent || $studentProfile)) {
+            $profileData = array_intersect_key($data, array_flip(['klas', 'opleiding', 'studentnummer']));
+            if ($studentProfile) {
+                if ($profileData !== []) {
+                    DB::table('student')->where('idstudent', $studentProfile->idstudent)->update($profileData);
+                }
+            } else {
+                DB::table('student')->insert($profileData + [
+                    'lid_idlid' => $member->getKey(), 'startdatum' => today()->toDateString(),
+                ]);
+            }
+        }
 
         // Koppel alle leeruitkomsten aan leden met de rol Student.
         if (Schema::hasTable('leeruitkomsten_has_lid') && Schema::hasTable('leeruitkomsten')) {
-            $isStudent = strtolower((string) Role::whereKey($member->rol_idrol)->value('naam')) === 'student';
-
             if ($isStudent) {
                 $assignments = DB::table('leeruitkomsten')
                     ->select('leeruitkomsten_id')
@@ -190,5 +212,4 @@ class ApplicationAdminController extends Controller
             }
         }
     }
-
 }
