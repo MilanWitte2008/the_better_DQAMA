@@ -26,6 +26,27 @@ class LearningOutcomeManager
             ->selectRaw('NULL as opmerking');
     }
 
+    public function remove(int $memberId, int $outcomeId): void
+    {
+        DB::transaction(function () use ($memberId, $outcomeId): void {
+            DB::table('lid')->where('idlid', $memberId)->lockForUpdate()->first();
+            abort_unless($this->assignments($memberId)->where('outcome.leeruitkomsten_id', $outcomeId)->exists(), 404);
+            if (Schema::hasTable('student_leeruitkomsten')) {
+                $query = DB::table('student_leeruitkomsten')
+                    ->whereIn('student_idstudent', DB::table('student')->where('lid_idlid', $memberId)->select('idstudent'))
+                    ->where('leeruitkomsten_leeruitkomsten_id', $outcomeId);
+                if (Schema::hasColumn('reflectie', 'student_leeruitkomsten_id_leeruitkomsten')
+                    && DB::table('reflectie')->whereIn('student_leeruitkomsten_id_leeruitkomsten', (clone $query)->select('id_leeruitkomsten'))->exists()) {
+                    throw ValidationException::withMessages(['leeruitkomst' => 'Deze leeruitkomst bevat reflecties en kan niet worden verwijderd. De reflecties blijven bewaard.']);
+                }
+                $query->delete();
+            }
+            if (Schema::hasTable('leeruitkomsten_has_lid')) {
+                DB::table('leeruitkomsten_has_lid')->where('lid_idlid', $memberId)->where('leeruitkomsten_id', $outcomeId)->delete();
+            }
+        });
+    }
+
     public function save(int $memberId, int $outcomeId, string $status, ?string $comment, bool $assign = false): void
     {
         DB::transaction(function () use ($memberId, $outcomeId, $status, $comment, $assign): void {

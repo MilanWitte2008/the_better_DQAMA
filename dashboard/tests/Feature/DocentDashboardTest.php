@@ -217,6 +217,7 @@ class DocentDashboardTest extends TestCase
         $this->actingAs(User::findOrFail(1))->post('/docent/studenten/12/leeruitkomsten', ['leeruitkomsten_leeruitkomsten_id' => 1])->assertForbidden();
         $this->post('/docent/studenten/12/leeruitkomsten/nieuw', ['titel' => 'Verboden'])->assertForbidden();
         $this->post('/beheer/gebruikers/12/leeruitkomsten', ['outcome_id' => 1])->assertForbidden();
+        $this->delete('/beheer/gebruikers/11/leeruitkomsten/1')->assertForbidden();
         $this->actingAs(User::findOrFail(11))->put('/beheer/gebruikers/11/leeruitkomsten/1', ['status' => 'Behaald'])->assertForbidden();
         $this->signInAsAdmin();
         $this->post('/beheer/gebruikers/12/leeruitkomsten', ['outcome_id' => 1])->assertSessionHasNoErrors()->assertRedirect();

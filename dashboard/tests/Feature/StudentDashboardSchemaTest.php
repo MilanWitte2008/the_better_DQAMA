@@ -146,4 +146,34 @@ class StudentDashboardSchemaTest extends TestCase
         $this->assertDatabaseHas('student_leeruitkomsten', ['student_idstudent' => 11, 'status' => 'Bezig']);
         $this->actingAs(User::findOrFail(101))->get('/dashboard')->assertOk()->assertSee('Bezig');
     }
+
+    public function test_admin_removes_only_selected_students_assignment_and_it_stays_removed_after_refresh(): void
+    {
+        DB::statement('CREATE TABLE leeruitkomsten_has_lid (leeruitkomsten_id INTEGER, lid_idlid INTEGER, status TEXT, PRIMARY KEY(leeruitkomsten_id,lid_idlid))');
+        DB::table('leeruitkomsten_has_lid')->insert([
+            ['leeruitkomsten_id' => 1, 'lid_idlid' => 101, 'status' => 'Behaald'],
+            ['leeruitkomsten_id' => 1, 'lid_idlid' => 102, 'status' => 'Behaald'],
+        ]);
+        DB::table('reflectie')->where('idreflectie', 11)->delete();
+        $this->actingAs(User::findOrFail(101))->delete('/beheer/gebruikers/101/leeruitkomsten/1')->assertForbidden();
+        $this->signInAsAdmin();
+        $this->get('/beheer/gebruikers/101/bewerken')->assertOk()->assertSee('Verwijderen bij deze student');
+        $this->delete('/beheer/gebruikers/101/leeruitkomsten/1')->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertDatabaseMissing('student_leeruitkomsten', ['student_idstudent' => 11]);
+        $this->assertDatabaseMissing('leeruitkomsten_has_lid', ['lid_idlid' => 101]);
+        $this->assertDatabaseHas('student_leeruitkomsten', ['student_idstudent' => 12, 'status' => 'Behaald']);
+        $this->assertDatabaseHas('leeruitkomsten_has_lid', ['lid_idlid' => 102, 'status' => 'Behaald']);
+        $this->assertDatabaseHas('leeruitkomsten', ['leeruitkomsten_id' => 1]);
+        $this->delete('/beheer/gebruikers/101/leeruitkomsten/1')->assertNotFound();
+        $this->actingAs(User::findOrFail(101))->get('/dashboard')->assertOk()->assertDontSee('Samenwerken');
+        $this->assertDatabaseMissing('leeruitkomsten_has_lid', ['lid_idlid' => 101]);
+    }
+
+    public function test_assignment_with_reflections_cannot_be_deleted(): void
+    {
+        $this->signInAsAdmin();
+        $this->delete('/beheer/gebruikers/101/leeruitkomsten/1')->assertSessionHasErrors('leeruitkomst');
+        $this->assertDatabaseHas('student_leeruitkomsten', ['id_leeruitkomsten' => 11]);
+        $this->assertDatabaseHas('reflectie', ['idreflectie' => 11]);
+    }
 }

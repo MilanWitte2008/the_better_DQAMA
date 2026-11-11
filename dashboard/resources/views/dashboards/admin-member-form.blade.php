@@ -132,6 +132,12 @@
                             </label>
                             <button class="admin-button" type="submit">Beoordeling opslaan</button>
                         </form>
+                        <form class="simple-form" method="POST"
+                            action="{{ route('beheer.members.outcomes.destroy', [$member, $outcome->leeruitkomsten_id]) }}"
+                            onsubmit="return confirm('Deze leeruitkomst en beoordeling verwijderen bij deze student? Andere studenten behouden hun gegevens.');">
+                            @csrf @method('DELETE')
+                            <button class="admin-button" type="submit" style="background:#b42318">Verwijderen</button>
+                        </form>
                     </details>
                 @empty
                     <p class="info-strip">Nog geen leeruitkomsten gekoppeld. Voeg hieronder een leeruitkomst toe om
