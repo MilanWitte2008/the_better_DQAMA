@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\DocentDashboard;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\MessageBag;
 use Illuminate\Support\ViewErrorBag;
@@ -297,6 +297,27 @@ class DocentDashboardTest extends TestCase
     private function newStudentInput(array $overrides = []): array
     {
         return array_replace(['voornaam' => 'Nieuwe', 'achternaam' => 'Student', 'email' => 'nieuw@example.test', 'password' => 'veilig-test-wachtwoord', 'password_confirmation' => 'veilig-test-wachtwoord', 'klas' => 'SD1', 'opleiding' => 'ICT'], $overrides);
+    }
+
+    public function test_admin_creates_missing_teacher_profile_without_duplicating_existing_profiles(): void
+    {
+        $this->signInAsAdmin();
+        DB::table('rol')->where('idrol', 1)->update(['naam' => 'Coach']);
+        DB::table('coach')->where('lid_idlid', 1)->delete();
+        $this->get('/beheer/gebruikers/1/bewerken')->assertOk()->assertSee('Docent')->assertDontSee('>Coach<', false);
+        $input = ['voornaam' => 'Docent', 'achternaam' => 'Voorbeeld', 'email' => '1@example.test', 'rol_idrol' => 1, 'status' => 'actief'];
+        $this->put('/beheer/gebruikers/1', $input)->assertRedirect();
+        $profileId = DB::table('coach')->where('lid_idlid', 1)->value('idcoach');
+        $this->assertNotNull($profileId);
+        $this->put('/beheer/gebruikers/1', $input)->assertRedirect();
+        $this->assertSame(1, DB::table('coach')->where('lid_idlid', 1)->count());
+        $this->assertEquals($profileId, DB::table('coach')->where('lid_idlid', 1)->value('idcoach'));
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertDontSee('Je account heeft nog geen coachprofiel');
+        foreach (['Coach', 'Docent'] as $name) {
+            $role = new Role;
+            $role->naam = $name;
+            $this->assertSame('Docent', $role->displayName());
+        }
     }
 
     public function test_docent_cannot_create_student_account_profile_or_assignment(): void

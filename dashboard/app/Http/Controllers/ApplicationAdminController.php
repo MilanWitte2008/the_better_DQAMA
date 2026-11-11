@@ -57,7 +57,7 @@ class ApplicationAdminController extends Controller
             ->groupByRaw('SUBSTR(aangemaakt_datum, 1, 7)')
             ->pluck('total', 'month');
         $monthly = collect(range(1, 12))->map(fn (int $month): int => (int) ($monthlyCounts->get(sprintf('%04d-%02d', $year, $month), 0)))->all();
-        $roleDistribution = $roles->map(fn (Role $role): array => ['label' => $role->naam ?? 'Naamloze rol', 'value' => (int) $role->member_count])->values();
+        $roleDistribution = $roles->map(fn (Role $role): array => ['label' => $role->displayName(), 'value' => (int) $role->member_count])->values();
         $unassigned = $stats['members'] - $roles->sum('member_count');
         if ($unassigned > 0) {
             $roleDistribution->push(['label' => 'Geen rol', 'value' => $unassigned]);
@@ -179,6 +179,11 @@ class ApplicationAdminController extends Controller
             $member->aangemaakt_datum = now();
         }
         $member->save();
+        $roleName = strtolower((string) Role::whereKey($member->rol_idrol)->value('naam'));
+        if (in_array($roleName, ['coach', 'docent'], true) && Schema::hasTable('coach')
+            && ! DB::table('coach')->where('lid_idlid', $member->getKey())->exists()) {
+            DB::table('coach')->insert(['lid_idlid' => $member->getKey()]);
+        }
         $isStudent = strtolower((string) Role::whereKey($member->rol_idrol)->value('naam')) === 'student';
         if ($hasStudentProfiles && ($isStudent || $studentProfile)) {
             $profileData = array_intersect_key($data, array_flip(['klas', 'opleiding', 'studentnummer']));

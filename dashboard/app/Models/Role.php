@@ -13,6 +13,12 @@ class Role extends Model
     // Elke rol heeft een eigen nummer: idrol.
     protected $primaryKey = 'idrol';
 
+    public function displayName(): string
+    {
+        return in_array(strtolower((string) $this->naam), ['coach', 'docent'], true)
+            ? 'Docent' : ($this->naam ?? 'Naamloze rol');
+    }
+
     // Een rol kan bij meerdere gebruikers horen.
     public function members(): HasMany
     {
