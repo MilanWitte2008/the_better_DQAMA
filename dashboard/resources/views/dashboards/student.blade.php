@@ -80,6 +80,21 @@
             return $phase;
         });
 
+    if ($schema->hasTable('student_phase_assignments')) {
+        $explicitPhases = $db->table('student_phase_assignments')
+            ->join('fase', 'fase.idfase', '=', 'phase_id')
+            ->where('member_id', $memberId)->get(['fase.idfase', 'fase.naam', 'fase.volgorde']);
+        foreach ($explicitPhases as $phase) {
+            if (! $phases->contains('idfase', $phase->idfase)) {
+                $phase->outcome_count = 0;
+                $phase->completed_count = 0;
+                $phase->progress = 0;
+                $phases->push($phase);
+            }
+        }
+        $phases = $phases->sortBy('volgorde')->values();
+    }
+
     // Haal de vijf nieuwste reflecties op.
     $reflectionQuery = $db->table('reflectie');
     if ($schema->hasColumn('reflectie', 'lid_idlid')) {
@@ -233,6 +248,16 @@
             </div>
             @if ($studentData['hours']->isEmpty())
                 <p class="info-strip">Er zijn nog geen uren aan jouw account gekoppeld.</p>
+            @else
+                <ul class="updates-list">
+                    @foreach($studentData['hours'] as $entry)
+                        <li>
+                            <time>{{ \Illuminate\Support\Carbon::parse($entry->datum)->format('d-m-Y') }}</time>
+                            <strong>{{ number_format($entry->uren, 2, ',', '.') }} uur · {{ $entry->status }}</strong>
+                            <span>{{ $entry->omschrijving }}</span>
+                        </li>
+                    @endforeach
+                </ul>
             @endif
         </section>
 
