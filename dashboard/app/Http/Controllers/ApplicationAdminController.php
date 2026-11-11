@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -94,10 +96,82 @@ class ApplicationAdminController extends Controller
     {
         return view('dashboards.admin-member-form', [
             'member' => $member, 'roles' => Role::orderBy('naam')->get(), 'roleKey' => 'beheerder',
+            'studentHours' => $member->exists && $member->dashboardRoleKey() === 'student' && Schema::hasTable('urenregistratie')
+                ? $this->studentHours($member)->orderByDesc('datum')->get() : collect(),
+            'availablePhases' => Schema::hasTable('fase') ? DB::table('fase')->orderBy('volgorde')->get() : collect(),
+            'assignedPhases' => $member->exists && Schema::hasTable('student_phase_assignments')
+                ? DB::table('student_phase_assignments')->join('fase', 'fase.idfase', '=', 'phase_id')->where('member_id', $member->getKey())->get(['fase.naam']) : collect(),
             'hasStudentProfiles' => Schema::hasTable('student'),
             'studentProfile' => $member->exists && Schema::hasTable('student')
                 ? DB::table('student')->where('lid_idlid', $member->getKey())->first() : null,
         ]);
+    }
+
+    private function studentHours(User $member): Builder
+    {
+        $query = DB::table('urenregistratie');
+        if (Schema::hasColumn('urenregistratie', 'lid_id')) {
+            return $query->where('lid_id', $member->getKey());
+        }
+
+        return $query->whereIn('student_id', DB::table('student')->where('lid_idlid', $member->getKey())->select('idstudent'));
+    }
+
+    public function saveHours(Request $request, User $member): RedirectResponse
+    {
+        $this->authorizeAdmin($request);
+        abort_unless($member->dashboardRoleKey() === 'student', 403);
+        $data = $request->validate([
+            'entry_id' => ['nullable', 'integer'],
+            'datum' => ['required', 'date', 'before_or_equal:today'],
+            'omschrijving' => ['required', 'string', 'max:255'],
+            'uren' => ['required', 'numeric', 'min:0.01', 'max:24', 'decimal:0,2'],
+            'status' => ['required', Rule::in(['In afwachting', 'Goedgekeurd', 'Afgekeurd'])],
+        ]);
+        $entryId = $data['entry_id'] ?? null;
+        unset($data['entry_id']);
+        if ($entryId) {
+            $entry = $this->studentHours($member)->where('idurenregistratie', $entryId);
+            abort_unless($entry->exists(), 404);
+            $entry->update($data);
+        } else {
+            if (Schema::hasColumn('urenregistratie', 'lid_id')) {
+                $data['lid_id'] = $member->getKey();
+            } else {
+                $studentId = DB::table('student')->where('lid_idlid', $member->getKey())->value('idstudent');
+                if (! $studentId) {
+                    throw ValidationException::withMessages(['uren' => 'Sla eerst de studentgegevens op om een studentprofiel aan te maken.']);
+                }
+                $data['student_id'] = $studentId;
+            }
+            DB::table('urenregistratie')->insert($data);
+        }
+
+        return redirect()->route('beheer.members.edit', $member)->with('success', 'Uren opgeslagen. De student ziet de wijziging na het vernieuwen van de pagina.');
+    }
+
+    public function assignPhase(Request $request, User $member): RedirectResponse
+    {
+        $this->authorizeAdmin($request);
+        abort_unless($member->dashboardRoleKey() === 'student', 403);
+        $data = $request->validate([
+            'phase_id' => ['nullable', 'required_without:phase_name', 'integer', 'exists:fase,idfase'],
+            'phase_name' => ['nullable', 'required_without:phase_id', 'prohibits:phase_id', 'string', 'max:50'],
+        ]);
+        DB::transaction(function () use ($data, $member): void {
+            $phaseId = $data['phase_id'] ?? null;
+            if (! $phaseId) {
+                $phaseId = DB::table('fase')->insertGetId([
+                    'naam' => trim($data['phase_name']),
+                    'volgorde' => (int) DB::table('fase')->max('volgorde') + 1,
+                ], 'idfase');
+            }
+            DB::table('student_phase_assignments')->insertOrIgnore([
+                'member_id' => $member->getKey(), 'phase_id' => $phaseId,
+            ]);
+        });
+
+        return redirect()->route('beheer.members.edit', $member)->with('success', 'Fase gekoppeld. De student ziet de fase na het vernieuwen van de pagina.');
     }
 
     // Sla een nieuwe gebruiker op en ga terug naar het dashboard.
