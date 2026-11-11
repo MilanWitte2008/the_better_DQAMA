@@ -20,8 +20,8 @@ class StudentDashboardSchemaTest extends TestCase
             'lid (idlid INTEGER PRIMARY KEY, voornaam TEXT, achternaam TEXT, email TEXT, status TEXT, rol_idrol INTEGER)',
             'student (idstudent INTEGER PRIMARY KEY, lid_idlid INTEGER, studentnummer TEXT, klas TEXT, opleiding TEXT)',
             'fase (idfase INTEGER PRIMARY KEY, naam TEXT, volgorde INTEGER)',
-            'leeruitkomsten (leeruitkomsten_id INTEGER PRIMARY KEY, titel TEXT, omschrijving TEXT, fase_idfase INTEGER)',
-            'student_leeruitkomsten (id_leeruitkomsten INTEGER PRIMARY KEY, student_idstudent INTEGER, leeruitkomsten_leeruitkomsten_id INTEGER, status TEXT)',
+            'leeruitkomsten (leeruitkomsten_id INTEGER PRIMARY KEY, titel TEXT, code TEXT, omschrijving TEXT, fase_idfase INTEGER)',
+            'student_leeruitkomsten (id_leeruitkomsten INTEGER PRIMARY KEY, student_idstudent INTEGER, leeruitkomsten_leeruitkomsten_id INTEGER, status TEXT, opmerking TEXT, vooruitgang INTEGER, laatste_update TEXT)',
             'urenregistratie (idurenregistratie INTEGER PRIMARY KEY, student_id INTEGER, datum TEXT, uren REAL, status TEXT, omschrijving TEXT)',
             'reflectie (idreflectie INTEGER PRIMARY KEY, student_leeruitkomsten_id_leeruitkomsten INTEGER, inhoud TEXT, datum TEXT)',
         ] as $table) {
@@ -124,5 +124,26 @@ class StudentDashboardSchemaTest extends TestCase
         $this->get(route('beheer.members.edit', 101))->assertOk()->assertSee('Verdieping');
         $this->actingAs(User::findOrFail(101))->get('/dashboard')->assertOk()->assertSee('Verdieping');
         $this->actingAs(User::findOrFail(102))->get('/dashboard')->assertOk()->assertDontSee('Verdieping');
+    }
+
+    public function test_admin_assessment_updates_student_and_phase_progress_without_granting_student_write_access(): void
+    {
+        $this->signInAsAdmin();
+        $this->put('/beheer/gebruikers/101/leeruitkomsten/1', ['status' => 'Te doen'])->assertSessionHasNoErrors();
+        $this->actingAs(User::findOrFail(101))->get('/dashboard')->assertOk()->assertSee('0%')->assertSee('Te doen');
+        $this->actingAs(User::findOrFail(201))->put('/beheer/gebruikers/101/leeruitkomsten/1', ['status' => 'Behaald'])->assertSessionHasNoErrors();
+        $this->actingAs(User::findOrFail(101))->get('/dashboard')->assertOk()->assertSee('100%')->assertSee('Behaald');
+        $this->put('/beheer/gebruikers/101/leeruitkomsten/1', ['status' => 'Te doen'])->assertForbidden();
+        $this->assertDatabaseHas('student_leeruitkomsten', ['student_idstudent' => 12, 'status' => 'Behaald']);
+    }
+
+    public function test_admin_assessment_keeps_member_and_student_schemas_in_sync(): void
+    {
+        DB::statement('CREATE TABLE leeruitkomsten_has_lid (leeruitkomsten_id INTEGER, lid_idlid INTEGER, status TEXT, PRIMARY KEY(leeruitkomsten_id,lid_idlid))');
+        $this->signInAsAdmin();
+        $this->put('/beheer/gebruikers/101/leeruitkomsten/1', ['status' => 'Bezig'])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('leeruitkomsten_has_lid', ['lid_idlid' => 101, 'status' => 'Bezig']);
+        $this->assertDatabaseHas('student_leeruitkomsten', ['student_idstudent' => 11, 'status' => 'Bezig']);
+        $this->actingAs(User::findOrFail(101))->get('/dashboard')->assertOk()->assertSee('Bezig');
     }
 }

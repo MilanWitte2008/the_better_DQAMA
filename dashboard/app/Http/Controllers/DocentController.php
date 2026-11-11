@@ -8,7 +8,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class DocentController extends Controller
@@ -49,43 +48,14 @@ class DocentController extends Controller
         return redirect()->to(route('dashboard').'#studenten')->with('docent_success', 'Student uit jouw begeleiding verwijderd. Het account en dossier zijn bewaard.');
     }
 
-    /** Maak een echte leeruitkomst aan en wijs deze zonder voltooiing toe aan de student. */
     public function createOutcome(Request $request, int $student): RedirectResponse
     {
-        $this->student($request, $student);
-        $data = $request->validate([
-            'titel' => ['required', 'string', 'max:255'],
-            'omschrijving' => ['nullable', 'string', 'max:10000'],
-        ]);
-        DB::transaction(function () use ($data, $student): void {
-            $id = DB::table('leeruitkomsten')->insertGetId($data + [
-                'code' => 'LO-'.Str::upper(Str::random(12)),
-            ], 'leeruitkomsten_id');
-            DB::table('student_leeruitkomsten')->insert([
-                'student_idstudent' => $student, 'leeruitkomsten_leeruitkomsten_id' => $id,
-                'status' => 'Te doen', 'vooruitgang' => 0, 'laatste_update' => now(),
-            ]);
-        });
-
-        return $this->done('student-detail', ['student' => $student]);
+        abort(403, 'Leeruitkomsten worden beheerd door de applicatiebeheerder.');
     }
 
     public function storeOutcome(Request $request, int $student): RedirectResponse
     {
-        $this->student($request, $student);
-        $data = $request->validate([
-            'leeruitkomsten_leeruitkomsten_id' => ['required', 'integer', Rule::exists('leeruitkomsten', 'leeruitkomsten_id')],
-        ]);
-        DB::transaction(function () use ($student, $data): void {
-            DB::table('student')->where('idstudent', $student)->lockForUpdate()->first();
-            $query = DB::table('student_leeruitkomsten')->where('student_idstudent', $student)
-                ->where('leeruitkomsten_leeruitkomsten_id', $data['leeruitkomsten_leeruitkomsten_id']);
-            if (! $query->exists()) {
-                DB::table('student_leeruitkomsten')->insert($data + ['student_idstudent' => $student, 'status' => 'Te doen', 'vooruitgang' => 0, 'laatste_update' => now()]);
-            }
-        });
-
-        return $this->done('student-detail', ['student' => $student]);
+        abort(403, 'Leeruitkomsten worden beheerd door de applicatiebeheerder.');
     }
 
     /** Notities blijven eigendom van hun auteur; een andere coach kan ze niet wijzigen. */
@@ -175,13 +145,6 @@ class DocentController extends Controller
 
     public function updateOutcome(Request $request, int $outcome): RedirectResponse
     {
-        $ids = app(DocentDashboard::class)->studentIds($request->user());
-        $query = DB::table('student_leeruitkomsten')->where('id_leeruitkomsten', $outcome)->whereIn('student_idstudent', $ids);
-        $record = (clone $query)->first();
-        abort_unless($record, 404);
-        $data = $request->validate(['status' => ['required', Rule::in(['Te doen', 'Bezig', 'Behaald'])], 'opmerking' => ['nullable', 'string', 'max:10000']]);
-        $query->update($data + ['laatste_update' => now(), 'vooruitgang' => $data['status'] === 'Behaald' ? 100 : null]);
-
-        return $this->done('student-detail', ['student' => $record->student_idstudent]);
+        abort(403, 'Leeruitkomsten worden beheerd door de applicatiebeheerder.');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\LearningOutcomeManager;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Query\Builder;
@@ -10,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -101,6 +103,10 @@ class ApplicationAdminController extends Controller
             'availablePhases' => Schema::hasTable('fase') ? DB::table('fase')->orderBy('volgorde')->get() : collect(),
             'assignedPhases' => $member->exists && Schema::hasTable('student_phase_assignments')
                 ? DB::table('student_phase_assignments')->join('fase', 'fase.idfase', '=', 'phase_id')->where('member_id', $member->getKey())->get(['fase.naam']) : collect(),
+            'managedOutcomes' => $member->exists && $member->dashboardRoleKey() === 'student'
+                && (Schema::hasTable('student_leeruitkomsten') || Schema::hasTable('leeruitkomsten_has_lid'))
+                ? app(LearningOutcomeManager::class)->assignments((int) $member->getKey())->orderBy('outcome.titel')->get() : collect(),
+            'outcomeCatalog' => Schema::hasTable('leeruitkomsten') ? DB::table('leeruitkomsten')->orderBy('titel')->get() : collect(),
             'hasStudentProfiles' => Schema::hasTable('student'),
             'studentProfile' => $member->exists && Schema::hasTable('student')
                 ? DB::table('student')->where('lid_idlid', $member->getKey())->first() : null,
@@ -172,6 +178,46 @@ class ApplicationAdminController extends Controller
         });
 
         return redirect()->route('beheer.members.edit', $member)->with('success', 'Fase gekoppeld. De student ziet de fase na het vernieuwen van de pagina.');
+    }
+
+    public function assignOutcome(Request $request, User $member): RedirectResponse
+    {
+        $this->authorizeAdmin($request);
+        abort_unless($member->dashboardRoleKey() === 'student', 403);
+        $data = $request->validate([
+            'outcome_id' => ['nullable', 'required_without:titel', 'integer', 'exists:leeruitkomsten,leeruitkomsten_id'],
+            'titel' => ['nullable', 'required_without:outcome_id', 'prohibits:outcome_id', 'string', 'max:255'],
+            'omschrijving' => ['nullable', 'string', 'max:10000'],
+            'phase_id' => ['nullable', 'integer', 'exists:fase,idfase'],
+        ]);
+        DB::transaction(function () use ($data, $member): void {
+            $outcomeId = $data['outcome_id'] ?? null;
+            if (! $outcomeId) {
+                $record = ['titel' => $data['titel'], 'omschrijving' => $data['omschrijving'] ?? null,
+                    'code' => 'LO-'.Str::upper(Str::random(12))];
+                if (! empty($data['phase_id'])) {
+                    $column = Schema::hasColumn('leeruitkomsten', 'fase_idfase1') ? 'fase_idfase1' : 'fase_idfase';
+                    $record[$column] = $data['phase_id'];
+                }
+                $outcomeId = DB::table('leeruitkomsten')->insertGetId($record, 'leeruitkomsten_id');
+            }
+            app(LearningOutcomeManager::class)->save((int) $member->getKey(), (int) $outcomeId, 'Te doen', null, true);
+        });
+
+        return redirect()->to(route('beheer.members.edit', $member).'#leeruitkomsten')->with('success', 'Leeruitkomst gekoppeld. Bestaande beoordelingen zijn behouden.');
+    }
+
+    public function updateOutcome(Request $request, User $member, int $outcome): RedirectResponse
+    {
+        $this->authorizeAdmin($request);
+        abort_unless($member->dashboardRoleKey() === 'student', 403);
+        $data = $request->validate([
+            'status' => ['required', Rule::in(['Te doen', 'Bezig', 'Behaald'])],
+            'opmerking' => ['nullable', 'string', 'max:10000'],
+        ]);
+        app(LearningOutcomeManager::class)->save((int) $member->getKey(), $outcome, $data['status'], $data['opmerking'] ?? null);
+
+        return redirect()->to(route('beheer.members.edit', $member).'#leeruitkomsten')->with('success', 'Beoordeling opgeslagen. De voortgang is opnieuw berekend.');
     }
 
     // Sla een nieuwe gebruiker op en ga terug naar het dashboard.

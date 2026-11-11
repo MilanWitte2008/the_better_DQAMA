@@ -198,8 +198,8 @@
                         </div>
                     </div>
                     @if ($total === 0)
-                        <p class="center muted">Er zijn nog geen leeruitkomsten aan jouw studenten toegewezen. Voeg
-                            eerst een leeruitkomst toe om voortgang te meten.</p>
+                        <p class="center muted">Er zijn nog geen leeruitkomsten aan jouw studenten toegewezen. Je kunt
+                            de applicatiebeheerder een leeruitkomst laten koppelen om voortgang te meten.</p>
                         @if ($students->isNotEmpty())
                             <form method="GET" action="{{ route('dashboard') }}#student-detail"
                                 class="docent-form">
@@ -211,7 +211,7 @@
                                     </select></label>
                                 <button type="submit" class="button dark">Dossier bekijken</button>
                             </form>
-                        @else<p class="center muted">Voeg eerst een student toe via Mijn studenten.</p>
+                        @else<p class="center muted">Laat de beheerder eerst een student aan jouw begeleiding koppelen.</p>
                         @endif
                     @else
                         <p class="center muted">{{ $achieved }} van {{ $total }} toegewezen leeruitkomsten
@@ -241,6 +241,7 @@
                         <div><dt>E-mailadres</dt><dd>{{ $selected->email ?: 'Niet bekend' }}</dd></div>
                     </dl>
                     <h3 class="dossier-section-title">Leeruitkomsten</h3>
+                    <p class="muted">Alleen de applicatiebeheerder kan leeruitkomsten koppelen en beoordelingen wijzigen.</p>
                     <div class="dossier-outcomes">
                         @forelse($outcomes->where('student_idstudent', $selected->idstudent) as $outcome)
                             <article class="dossier-outcome">
