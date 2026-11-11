@@ -39,6 +39,8 @@ Route::middleware('auth')->prefix('beheer')->name('beheer.')->group(function () 
      */
     Route::get('/gebruikers/{member}/bewerken', [ApplicationAdminController::class, 'edit'])->name('members.edit');
     // {member} is het nummer van de gebruiker. PUT slaat de wijzigingen op.
+    Route::post('/gebruikers/{member}/leeruitkomsten', [ApplicationAdminController::class, 'assignOutcome'])->name('members.outcomes.store');
+    Route::put('/gebruikers/{member}/leeruitkomsten/{outcome}', [ApplicationAdminController::class, 'updateOutcome'])->whereNumber('outcome')->name('members.outcomes.update');
     Route::post('/gebruikers/{member}/uren', [ApplicationAdminController::class, 'saveHours'])->name('members.hours.save');
     Route::post('/gebruikers/{member}/fases', [ApplicationAdminController::class, 'assignPhase'])->name('members.phases.store');
     Route::put('/gebruikers/{member}', [ApplicationAdminController::class, 'update'])->name('members.update');
