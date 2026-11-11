@@ -23,11 +23,7 @@ class DocentDashboard
     public function studentIds(User $user): Collection
     {
         $coachIds = $this->coachIds($user);
-        if ($coachIds->isEmpty()) {
-            return collect();
-        }
-
-        $studentIds = Schema::hasTable('student_coach')
+        $studentIds = $coachIds->isNotEmpty() && Schema::hasTable('student_coach')
             ? DB::table('student_coach')->whereIn('coach_idcoach', $coachIds)
                 ->whereRaw('LOWER(status) = ?', ['actief'])
                 ->where(fn ($q) => $q->whereNull('startdatum')->orWhereDate('startdatum', '<=', today()))
@@ -37,18 +33,24 @@ class DocentDashboard
 
         $groupIds = $this->teacherGroupIds($user);
         if ($groupIds->isNotEmpty()
-            && Schema::hasTable('student')
             && Schema::hasTable('lid')
-            && Schema::hasTable('rol')) {
-            $groupStudentIds = DB::table('groep_has_lid as membership')
-                ->join('student', 'student.lid_idlid', '=', 'membership.idlid')
+            && Schema::hasTable('rol')
+            && Schema::hasTable('groep_has_lid')) {
+            $groupStudents = DB::table('groep_has_lid as membership')
                 ->join('lid as student_member', 'student_member.idlid', '=', 'membership.idlid')
                 ->join('rol as student_role', 'student_role.idrol', '=', 'student_member.rol_idrol')
                 ->whereIn('membership.idgroep', $groupIds)
                 ->where('student_member.status', 'actief')
-                ->whereRaw('LOWER(student_role.naam) = ?', ['student'])
-                ->distinct()
-                ->pluck('student.idstudent');
+                ->whereRaw('LOWER(student_role.naam) = ?', ['student']);
+
+            if (Schema::hasTable('student') && Schema::hasColumn('student', 'lid_idlid')) {
+                $groupStudentIds = (clone $groupStudents)
+                    ->join('student', 'student.lid_idlid', '=', 'membership.idlid')
+                    ->distinct()
+                    ->pluck('student.idstudent');
+            } else {
+                $groupStudentIds = (clone $groupStudents)->distinct()->pluck('membership.idlid');
+            }
 
             $studentIds = $studentIds->merge($groupStudentIds);
         }
@@ -134,6 +136,9 @@ class DocentDashboard
                         && ($search === '' || str_contains($name, mb_strtolower($search)));
                 })
                 ->values();
+            $studentIds = $this->studentIds($user);
+            $notes = $this->legacyNotes($studentIds);
+            $meetings = $this->legacyMeetings($user, $studentIds);
 
             return [
                 'students' => collect(),
@@ -151,12 +156,12 @@ class DocentDashboard
                 'availableOutcomes' => collect(),
                 'classes' => $teacherGroups->pluck('groepnaam')->filter()->values(),
                 'attentionCount' => 0,
-                'coachLinked' => false,
-                'notesCount' => 0,
-                'notes' => collect(),
-                'upcomingCount' => 0,
-                'upcoming' => collect(),
-                'recent' => collect(),
+                'coachLinked' => $coachIds->isNotEmpty() || $groupIds->isNotEmpty(),
+                'notesCount' => (clone $notes)->count(),
+                'notes' => $notes->limit(8)->get(),
+                'upcomingCount' => (clone $meetings)->where('g.datum', '>=', now())->count(),
+                'upcoming' => (clone $meetings)->where('g.datum', '>=', now())->orderBy('g.datum')->limit(5)->get(),
+                'recent' => (clone $meetings)->where('g.datum', '<', now())->orderByDesc('g.datum')->limit(5)->get(),
             ];
         }
 
@@ -228,5 +233,38 @@ class DocentDashboard
             'upcoming' => (clone $meetings)->where('g.datum', '>=', now())->orderBy('g.datum')->limit(5)->get(),
             'recent' => (clone $meetings)->where('g.datum', '<', now())->orderByDesc('g.datum')->limit(5)->get(),
         ];
+    }
+
+    private function legacyNotes(Collection $studentIds): \Illuminate\Database\Query\Builder
+    {
+        if (! Schema::hasColumn('begeleidingsnotitie', 'lid_idlid')) {
+            return DB::table('begeleidingsnotitie as n')->whereRaw('1 = 0');
+        }
+
+        return DB::table('begeleidingsnotitie as n')
+            ->join('lid as l', 'l.idlid', '=', 'n.lid_idlid')
+            ->whereIn('n.lid_idlid', $studentIds)
+            ->select('n.id_notitie', 'n.lid_idlid as idstudent', 'n.inhoud', 'n.datum', 'n.type', 'l.voornaam', 'l.achternaam')
+            ->orderByDesc('n.datum');
+    }
+
+    private function legacyMeetings(User $user, Collection $studentIds): \Illuminate\Database\Query\Builder
+    {
+        if (! Schema::hasTable('gesprekken_has_lid')
+            || ! Schema::hasColumn('gesprekken_has_lid', 'gesprekken_idgesprek')
+            || ! Schema::hasColumn('gesprekken_has_lid', 'lid_idlid')) {
+            return DB::table('gesprekken as g')->whereRaw('1 = 0');
+        }
+
+        return DB::table('gesprekken as g')
+            ->join('gesprekken_has_lid as student_link', 'student_link.gesprekken_idgesprek', '=', 'g.idgesprek')
+            ->join('lid as l', 'l.idlid', '=', 'student_link.lid_idlid')
+            ->whereIn('student_link.lid_idlid', $studentIds)
+            ->whereExists(fn ($query) => $query->selectRaw('1')
+                ->from('gesprekken_has_lid as teacher_link')
+                ->whereColumn('teacher_link.gesprekken_idgesprek', 'g.idgesprek')
+                ->where('teacher_link.lid_idlid', $user->getKey()))
+            ->select('g.idgesprek', 'student_link.lid_idlid as student_idstudent', 'g.datum', 'g.onderwerp', 'g.inhoud', 'g.afspraken', 'l.voornaam', 'l.achternaam')
+            ->distinct();
     }
 }

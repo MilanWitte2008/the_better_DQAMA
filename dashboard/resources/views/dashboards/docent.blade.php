@@ -2,11 +2,9 @@
 @php
     $dashboard = app(\App\DocentDashboard::class)->data($user, request());
     extract($dashboard, EXTR_SKIP);
-    $studentOptions = $students
-        ->mapWithKeys(
-            fn($item) => [$item->idstudent => $item->voornaam . ' ' . $item->achternaam . ' · ' . $item->klas],
-        )
-        ->all();
+    $studentOptions = $students->isNotEmpty()
+        ? $students->mapWithKeys(fn($item) => [$item->idstudent => $item->voornaam . ' ' . $item->achternaam . ' · ' . $item->klas])->all()
+        : $teacherGroupStudents->mapWithKeys(fn($item) => [$item->idlid => $item->voornaam . ' ' . $item->achternaam . ' · ' . $item->groepnaam])->all();
     $dateLabel = fn($value) => $value
         ? \Illuminate\Support\Carbon::parse($value)->format('d-m-Y H:i')
         : 'Nog geen update';
@@ -233,7 +231,7 @@
                     @if ($total === 0)
                         <p class="center muted">Er zijn nog geen leeruitkomsten aan jouw studenten toegewezen. Voeg
                             eerst een leeruitkomst toe om voortgang te meten.</p>
-                        @if ($students->isNotEmpty())
+                        @if ($studentOptions !== [])
                             <form method="GET" action="{{ route('dashboard') }}#student-detail"
                                 class="docent-form">
                                 <label for="progress-student">Kies een student<select id="progress-student"
@@ -304,7 +302,7 @@
                             <h2>Coachgesprekken</h2>
                         </div><span class="count">{{ $upcomingCount }} gepland</span>
                     </div>
-                    @if ($students->isNotEmpty())
+                    @if ($studentOptions !== [])
                         <details class="edit-panel" @if (old('_form') === 'meeting-new') open @endif>
                             <summary>+ Gesprek plannen</summary>
                             @include('dashboards.docent-form', [
@@ -345,7 +343,8 @@
                                         <p class="preserve">{{ $meeting->inhoud }}</p>
                                         <p class="preserve">{{ $meeting->afspraken }}</p>
                                     </details>
-                                @endif@include('dashboards.docent-meeting-edit')
+                                @endif
+                                @include('dashboards.docent-meeting-edit')
                             </div>
                     </article>@empty<div class="empty"><span class="empty-symbol">◷</span><strong>Even ruimte in
                                 de agenda</strong>
@@ -359,7 +358,8 @@
                                 <strong>{{ $meeting->onderwerp ?: 'Coachgesprek' }}</strong><small>{{ $meeting->voornaam }}
                                     {{ $meeting->achternaam }} · {{ $dateLabel($meeting->datum) }}</small>
                                 <p class="preserve">{{ $meeting->inhoud }}</p>
-                                <p class="preserve">{{ $meeting->afspraken }}</p>@include('dashboards.docent-meeting-edit')
+                                <p class="preserve">{{ $meeting->afspraken }}</p>
+                                @include('dashboards.docent-meeting-edit')
                         </article>@empty<p class="muted">Nog geen eerdere gesprekken.</p>
                         @endforelse
                     </details>
@@ -371,7 +371,7 @@
                             <h2>Mijn recente notities</h2>
                         </div><span class="count">{{ $notesCount }}</span>
                     </div>
-                    @if ($students->isNotEmpty())
+                    @if ($studentOptions !== [])
                         <details class="edit-panel" @if (old('_form') === 'note-new') open @endif>
                             <summary>+ Notitie toevoegen</summary>
                             @include('dashboards.docent-form', [

@@ -39,6 +39,7 @@
                 ['◇', 'Mijn leerdoelen', 'leerdoelen'],
                 ['▤', 'Reflecties', 'reflecties'],
                 ['☷', 'Gesprekken', 'gesprekken'],
+                ['▤', 'Notities', 'notities'],
             ],
             'docent' => [
                 ['⌂', 'Dashboard', 'all'],
