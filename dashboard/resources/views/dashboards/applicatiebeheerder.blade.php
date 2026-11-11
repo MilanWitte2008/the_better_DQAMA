@@ -188,7 +188,7 @@
                 <label>Rol<select name="role">
                         <option value="">Alle rollen</option>
                         @foreach ($roles as $role)
-                            <option value="{{ $role->idrol }}" @selected(($filters['role'] ?? '') == $role->idrol)>{{ $role->naam }}</option>
+                            <option value="{{ $role->idrol }}" @selected(($filters['role'] ?? '') == $role->idrol)>{{ $role->displayName() }}</option>
                         @endforeach
                     </select>
                 </label>
@@ -227,7 +227,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td><span class="admin-role">{{ $member->rol?->naam ?? 'Geen rol' }}</span></td>
+                                <td><span class="admin-role">{{ $member->rol?->displayName() ?? 'Geen rol' }}</span></td>
                                 <td><span
                                         class="status-pill {{ strtolower($member->status ?? '') === 'actief' ? '' : 'pending' }}">{{ ucfirst($member->status ?? 'Onbekend') }}</span>
                                 </td>
@@ -288,7 +288,7 @@
                     <article class="admin-role-card"><img class="role-icon"
                             src="{{ asset('icons/tabler/shield-check.svg') }}" alt="" width="24"
                             height="24">
-                        <h4>{{ $role->naam }}</h4>
+                        <h4>{{ $role->displayName() }}</h4>
                         <p>{{ $role->beschrijving ?: 'Geen beschrijving beschikbaar.' }}</p>
                         <strong>{{ $role->member_count }} gebruikers</strong>
                 </article>@empty<p>Er zijn nog geen rollen ingesteld in de database.</p>
