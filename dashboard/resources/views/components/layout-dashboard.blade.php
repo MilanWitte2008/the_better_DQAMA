@@ -37,6 +37,7 @@
                 ['◉', 'Mijn ontwikkeling', 'ontwikkeling'],
                 ['◷', 'Uren & resultaten', 'uren'],
                 ['◇', 'Mijn leerdoelen', 'leerdoelen'],
+                ['◎', 'Mijn resultaten', 'resultaten'],
                 ['▤', 'Reflecties', 'reflecties'],
                 ['☷', 'Gesprekken', 'gesprekken'],
                 ['▤', 'Notities', 'notities'],
@@ -136,7 +137,7 @@
                     }
 
                     const visibleTargets = target === 'leerdoelen'
-                        ? ['leerdoelen', 'leeruitkomsten']
+                        ? ['leerdoelen', 'resultaten']
                         : target === 'rapportages'
                             ? ['rapportages', 'trends', 'instellingen']
                             : [target];

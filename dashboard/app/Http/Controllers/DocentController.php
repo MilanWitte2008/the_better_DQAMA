@@ -234,6 +234,48 @@ class DocentController extends Controller
         return $this->done('gesprekken');
     }
 
+    public function approveMeetingRequest(Request $request, int $aanvraag): RedirectResponse
+    {
+        return $this->updateMeetingRequestStatus($request, $aanvraag, 'approved');
+    }
+
+    public function rejectMeetingRequest(Request $request, int $aanvraag): RedirectResponse
+    {
+        return $this->updateMeetingRequestStatus($request, $aanvraag, 'rejected');
+    }
+
+    private function updateMeetingRequestStatus(Request $request, int $aanvraag, string $status): RedirectResponse
+    {
+        abort_unless(
+            $request->user()?->dashboardRoleKey() === 'docent'
+                && strtolower((string) $request->user()->status) === 'actief',
+            403,
+        );
+        abort_unless(Schema::hasTable('gesprekken')
+            && Schema::hasColumn('gesprekken', 'idgesprek')
+            && Schema::hasColumn('gesprekken', 'onderwerp')
+            && Schema::hasColumn('gesprekken', 'afspraken')
+            && $this->hasLegacyMeetingParticipants(), 404);
+
+        $studentMemberIds = app(DocentDashboard::class)->studentMemberIds($request->user());
+        $query = DB::table('gesprekken')
+            ->where('idgesprek', $aanvraag)
+            ->where('onderwerp', DocentDashboard::MEETING_REQUEST_TOPIC)
+            ->where('afspraken', 'pending')
+            ->whereExists(fn ($link) => $link->selectRaw('1')
+                ->from('gesprekken_has_lid as teacher_link')
+                ->whereColumn('teacher_link.gesprekken_idgesprek', 'gesprekken.idgesprek')
+                ->where('teacher_link.lid_idlid', $request->user()->getKey()))
+            ->whereExists(fn ($link) => $link->selectRaw('1')
+                ->from('gesprekken_has_lid as student_link')
+                ->whereColumn('student_link.gesprekken_idgesprek', 'gesprekken.idgesprek')
+                ->whereIn('student_link.lid_idlid', $studentMemberIds));
+        $updated = $query->update(['afspraken' => $status]);
+        abort_unless($updated === 1, 404);
+
+        return $this->done('gesprekken', ['aanvragen' => 'verwerkt']);
+    }
+
     public function updateOutcome(Request $request, int $outcome): RedirectResponse
     {
         $ids = app(DocentDashboard::class)->studentIds($request->user());

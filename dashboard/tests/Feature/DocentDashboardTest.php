@@ -74,6 +74,81 @@ class DocentDashboardTest extends TestCase
         $this->assertCount(1, $data['recent']);
     }
 
+    public function test_docent_can_approve_or_reject_only_their_own_pending_requests(): void
+    {
+        DB::statement('CREATE TABLE gesprekken_has_lid (gesprekken_idgesprek INTEGER, lid_idlid INTEGER)');
+        $firstRequest = DB::table('gesprekken')->insertGetId([
+            'student_idstudent' => 11,
+            'datum' => '2026-11-13 10:00:00',
+            'onderwerp' => DocentDashboard::MEETING_REQUEST_TOPIC,
+            'inhoud' => 'Ik wil mijn voortgang bespreken.',
+            'afspraken' => 'pending',
+        ]);
+        $olderApprovedRequest = DB::table('gesprekken')->insertGetId([
+            'student_idstudent' => 11,
+            'datum' => null,
+            'onderwerp' => DocentDashboard::MEETING_REQUEST_TOPIC,
+            'inhoud' => 'Oud verzoek zonder datum',
+            'afspraken' => 'approved',
+        ]);
+        $secondRequest = DB::table('gesprekken')->insertGetId([
+            'student_idstudent' => 13,
+            'onderwerp' => DocentDashboard::MEETING_REQUEST_TOPIC,
+            'inhoud' => 'Ik wil hulp met mijn leerdoel.',
+            'afspraken' => 'pending',
+        ]);
+        $rejectedRequest = DB::table('gesprekken')->insertGetId([
+            'student_idstudent' => 11,
+            'onderwerp' => DocentDashboard::MEETING_REQUEST_TOPIC,
+            'inhoud' => 'Deze afgekeurde aanvraag mag niet in de lijst staan.',
+            'afspraken' => 'rejected',
+        ]);
+        DB::table('gesprekken_has_lid')->insert([
+            ['gesprekken_idgesprek' => $firstRequest, 'lid_idlid' => 11],
+            ['gesprekken_idgesprek' => $firstRequest, 'lid_idlid' => 1],
+            ['gesprekken_idgesprek' => $olderApprovedRequest, 'lid_idlid' => 11],
+            ['gesprekken_idgesprek' => $olderApprovedRequest, 'lid_idlid' => 1],
+            ['gesprekken_idgesprek' => $secondRequest, 'lid_idlid' => 13],
+            ['gesprekken_idgesprek' => $secondRequest, 'lid_idlid' => 2],
+            ['gesprekken_idgesprek' => $rejectedRequest, 'lid_idlid' => 11],
+            ['gesprekken_idgesprek' => $rejectedRequest, 'lid_idlid' => 1],
+        ]);
+
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Coachgesprekken')
+            ->assertSee('Ada Voorbeeld')
+            ->assertSee('Ik wil mijn voortgang bespreken.')
+            ->assertSee('Oud verzoek zonder datum')
+            ->assertSee('Geen datum opgegeven')
+            ->assertSee('Goedgekeurd')
+            ->assertDontSee('Deze afgekeurde aanvraag mag niet in de lijst staan.')
+            ->assertDontSee('Ik wil hulp met mijn leerdoel.')
+            ->assertSee('13-11-2026 10:00')
+            ->assertDontSee('<h3>Gespreksaanvragen</h3>', false);
+
+        $this->put('/docent/gesprekaanvragen/'.$firstRequest.'/goedkeuren')
+            ->assertRedirect('/dashboard?aanvragen=verwerkt#gesprekken');
+        $this->assertDatabaseHas('gesprekken', ['idgesprek' => $firstRequest, 'afspraken' => 'approved']);
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Goedgekeurd')
+            ->assertSee('13-11-2026 10:00')
+            ->assertSee('Gespreksaanvraag')
+            ->assertSee('Volgende stap')
+            ->assertDontSee('<h3>Gespreksaanvragen</h3>', false);
+        $this->put('/docent/gesprekaanvragen/'.$secondRequest.'/afkeuren')->assertNotFound();
+
+        $this->actingAs(User::findOrFail(2))
+            ->put('/docent/gesprekaanvragen/'.$secondRequest.'/afkeuren')
+            ->assertRedirect('/dashboard?aanvragen=verwerkt#gesprekken');
+        $this->assertDatabaseHas('gesprekken', ['idgesprek' => $secondRequest, 'afspraken' => 'rejected']);
+
+        $this->actingAs(User::findOrFail(11))
+            ->put('/docent/gesprekaanvragen/'.$firstRequest.'/afkeuren')
+            ->assertForbidden();
+    }
+
     public function test_search_class_attention_and_detail_cannot_expand_access(): void
     {
         $service = app(DocentDashboard::class);
@@ -109,6 +184,7 @@ class DocentDashboardTest extends TestCase
 
         $this->assertSame(['ICT 2A'], $data['teacherGroups']->pluck('groepnaam')->all());
         $this->assertSame([11, 12, 13], $data['students']->pluck('idstudent')->sort()->values()->all());
+        $this->assertSame(3, $data['studentCount']);
         $this->assertSame(['ICT 2A', 'SD2A', 'SD2B'], $data['classes']->values()->all());
         $this->actingAs(User::findOrFail(1))->get('/dashboard')
             ->assertOk()
@@ -134,10 +210,13 @@ class DocentDashboardTest extends TestCase
 
         $data = app(DocentDashboard::class)->data(User::findOrFail(1), Request::create('/dashboard'));
         $this->assertSame(['Ada', 'Bram'], $data['visibleGroupStudents']->pluck('voornaam')->all());
+        $this->assertSame(2, $data['studentCount']);
 
         $this->actingAs(User::findOrFail(1))->get('/dashboard')
             ->assertOk()
             ->assertSee('ICT 2A')
+            ->assertSee('<h2>Mijn studenten <span class="count">2</span></h2>', false)
+            ->assertSee('<strong>2</strong>', false)
             ->assertSee('Ada')
             ->assertSee('Bram');
     }

@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Schema;
 
 class DocentDashboard
 {
+    public const MEETING_REQUEST_TOPIC = '__gesprekaanvraag__';
+
     public function coachIds(User $user): Collection
     {
         abort_unless($user->dashboardRoleKey() === 'docent' && strtolower((string) $user->status) === 'actief', 403);
@@ -56,6 +58,27 @@ class DocentDashboard
         }
 
         return $studentIds->unique()->values();
+    }
+
+    public function studentMemberIds(User $user): Collection
+    {
+        $studentIds = $this->studentIds($user);
+        $memberIds = collect();
+
+        if (Schema::hasTable('student')
+            && Schema::hasColumn('student', 'idstudent')
+            && Schema::hasColumn('student', 'lid_idlid')) {
+            $memberIds = DB::table('student')->whereIn('idstudent', $studentIds)->pluck('lid_idlid');
+        } else {
+            $memberIds = $studentIds;
+        }
+
+        $groupIds = $this->teacherGroupIds($user);
+        if ($groupIds->isNotEmpty()) {
+            $memberIds = $memberIds->merge($this->teacherGroupStudents($groupIds)->pluck('idlid'));
+        }
+
+        return $memberIds->unique()->values();
     }
 
     private function teacherGroupIds(User $user): Collection
@@ -107,6 +130,26 @@ class DocentDashboard
             ->get();
     }
 
+    private function conversationRequests(User $user): Collection
+    {
+        if (! Schema::hasTable('gesprekken')
+            || ! Schema::hasColumn('gesprekken', 'idgesprek')
+            || ! Schema::hasColumn('gesprekken', 'onderwerp')
+            || ! Schema::hasColumn('gesprekken', 'inhoud')
+            || ! Schema::hasColumn('gesprekken', 'afspraken')
+            || ! Schema::hasTable('gesprekken_has_lid')) {
+            return collect();
+        }
+
+        return $this->legacyMeetings($user, $this->studentMemberIds($user), true)
+            ->where('g.onderwerp', self::MEETING_REQUEST_TOPIC)
+            ->where(fn ($query) => $query->whereNull('g.afspraken')->orWhere('g.afspraken', '<>', 'rejected'))
+            ->orderByRaw('CASE WHEN g.datum IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('g.datum')
+            ->orderBy('g.idgesprek')
+            ->get();
+    }
+
     /**
      * Lees uitsluitend studenten met een actuele koppeling aan deze docent.
      * Alle vervolglijsten gebruiken dezelfde selectie, ook bij handmatige URL-parameters.
@@ -136,12 +179,14 @@ class DocentDashboard
                         && ($search === '' || str_contains($name, mb_strtolower($search)));
                 })
                 ->values();
-            $studentIds = $this->studentIds($user);
+            $studentIds = $this->studentMemberIds($user);
             $notes = $this->legacyNotes($studentIds);
             $meetings = $this->legacyMeetings($user, $studentIds);
+            $studentCount = $teacherGroupStudents->pluck('idlid')->unique()->count();
 
             return [
                 'students' => collect(),
+                'studentCount' => $studentCount,
                 'filtered' => collect(),
                 'selected' => null,
                 'outcomes' => collect(),
@@ -157,6 +202,7 @@ class DocentDashboard
                 'classes' => $teacherGroups->pluck('groepnaam')->filter()->values(),
                 'attentionCount' => 0,
                 'coachLinked' => $coachIds->isNotEmpty() || $groupIds->isNotEmpty(),
+                'meetingRequests' => $this->conversationRequests($user),
                 'notesCount' => (clone $notes)->count(),
                 'notes' => $notes->limit(8)->get(),
                 'upcomingCount' => (clone $meetings)->where('g.datum', '>=', now())->count(),
@@ -170,6 +216,10 @@ class DocentDashboard
             ->whereIn('s.idstudent', $assigned)
             ->select('s.idstudent', 's.lid_idlid', 's.klas', 's.opleiding', 's.studentnummer', 'l.voornaam', 'l.achternaam', 'l.email', 'l.status')
             ->orderBy('l.achternaam')->orderBy('l.voornaam')->get();
+        $studentCount = $students->pluck('lid_idlid')
+            ->merge($teacherGroupStudents->pluck('idlid'))
+            ->unique()
+            ->count();
         $ids = $students->pluck('idstudent');
         $outcomes = DB::table('student_leeruitkomsten as a')
             ->join('leeruitkomsten as o', 'o.leeruitkomsten_id', '=', 'a.leeruitkomsten_leeruitkomsten_id')
@@ -200,8 +250,13 @@ class DocentDashboard
             ->join('lid as l', 'l.idlid', '=', 's.lid_idlid')->whereIn('n.idstudent', $ids)->whereIn('n.idcoach', $coachIds)
             ->select('n.id_notitie', 'n.idstudent', 'n.inhoud', 'n.datum', 'n.type', 'l.voornaam', 'l.achternaam')->orderByDesc('n.datum');
         $meetings = DB::table('gesprekken as g')->join('student as s', 's.idstudent', '=', 'g.student_idstudent')
-            ->join('lid as l', 'l.idlid', '=', 's.lid_idlid')->whereIn('g.student_idstudent', $ids)
-            ->select('g.idgesprek', 'g.student_idstudent', 'g.datum', 'g.onderwerp', 'g.inhoud', 'g.afspraken', 'l.voornaam', 'l.achternaam');
+            ->join('lid as l', 'l.idlid', '=', 's.lid_idlid')            ->whereIn('g.student_idstudent', $ids)
+            ->where('g.onderwerp', '<>', self::MEETING_REQUEST_TOPIC)
+            ->select('g.idgesprek', 'g.student_idstudent', 'g.datum', 'g.inhoud', 'g.afspraken', 'l.voornaam', 'l.achternaam')
+            ->selectRaw(
+                'CASE WHEN g.onderwerp = ? THEN ? ELSE g.onderwerp END AS onderwerp',
+                [self::MEETING_REQUEST_TOPIC, 'Gespreksaanvraag'],
+            );
         $total = $outcomes->count();
         $achieved = $outcomes->filter(fn ($item) => strtolower((string) $item->status) === 'behaald')->count();
 
@@ -227,6 +282,8 @@ class DocentDashboard
             'classes' => $classes,
             'attentionCount' => $students->where('attention', true)->count(),
             'coachLinked' => $coachIds->isNotEmpty(),
+            'studentCount' => $studentCount,
+            'meetingRequests' => $this->conversationRequests($user),
             'notesCount' => (clone $notes)->count(),
             'notes' => $notes->limit(8)->get(),
             'upcomingCount' => (clone $meetings)->where('g.datum', '>=', now())->count(),
@@ -248,7 +305,7 @@ class DocentDashboard
             ->orderByDesc('n.datum');
     }
 
-    private function legacyMeetings(User $user, Collection $studentIds): \Illuminate\Database\Query\Builder
+    private function legacyMeetings(User $user, Collection $studentIds, bool $includePendingRequests = false): \Illuminate\Database\Query\Builder
     {
         if (! Schema::hasTable('gesprekken_has_lid')
             || ! Schema::hasColumn('gesprekken_has_lid', 'gesprekken_idgesprek')
@@ -256,7 +313,7 @@ class DocentDashboard
             return DB::table('gesprekken as g')->whereRaw('1 = 0');
         }
 
-        return DB::table('gesprekken as g')
+        $meetings = DB::table('gesprekken as g')
             ->join('gesprekken_has_lid as student_link', 'student_link.gesprekken_idgesprek', '=', 'g.idgesprek')
             ->join('lid as l', 'l.idlid', '=', 'student_link.lid_idlid')
             ->whereIn('student_link.lid_idlid', $studentIds)
@@ -264,7 +321,16 @@ class DocentDashboard
                 ->from('gesprekken_has_lid as teacher_link')
                 ->whereColumn('teacher_link.gesprekken_idgesprek', 'g.idgesprek')
                 ->where('teacher_link.lid_idlid', $user->getKey()))
-            ->select('g.idgesprek', 'student_link.lid_idlid as student_idstudent', 'g.datum', 'g.onderwerp', 'g.inhoud', 'g.afspraken', 'l.voornaam', 'l.achternaam')
-            ->distinct();
+            ->select('g.idgesprek', 'student_link.lid_idlid as student_idstudent', 'g.datum', 'g.inhoud', 'g.afspraken', 'l.voornaam', 'l.achternaam')
+            ->selectRaw(
+                'CASE WHEN g.onderwerp = ? THEN ? ELSE g.onderwerp END AS onderwerp',
+                [self::MEETING_REQUEST_TOPIC, 'Gespreksaanvraag'],
+            );
+
+        if (! $includePendingRequests) {
+            $meetings->where('g.onderwerp', '<>', self::MEETING_REQUEST_TOPIC);
+        }
+
+        return $meetings->distinct();
     }
 }

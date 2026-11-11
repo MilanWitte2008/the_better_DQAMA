@@ -37,7 +37,7 @@
         <nav aria-label="Hoofdnavigatie">
             <a href="#inhoud" aria-label="Overzicht">◈ <span>Overzicht</span></a>
             <a href="#studenten" aria-label="Mijn studenten">♙ <span>Mijn
-                    studenten</span><b>{{ $students->count() }}</b></a>
+                    studenten</span><b>{{ $studentCount }}</b></a>
             <a href="#gesprekken" aria-label="Coachgesprekken">◷ <span>Coachgesprekken</span></a>
             <a href="#notities" aria-label="Notities">▤ <span>Notities</span></a>
             <a href="#rapportages" aria-label="Voortgang">▥ <span>Voortgang</span></a>
@@ -97,7 +97,7 @@
                         class="art-label">Elke stap telt.</span></div>
             </section>
             <section class="metrics" aria-label="Kerncijfers">
-                @foreach ([['Mijn studenten', $students->count(), 'Actuele begeleidingskoppelingen', '♙'], ['Geplande gesprekken', $upcomingCount, 'Vanaf dit moment', '◷'], ['Behaalde leeruitkomsten', $achieved . ' / ' . $total, 'Van jouw studenten', '✓'], ['Mijn notities', $notesCount, 'Bij gekoppelde studenten', '▤']] as [$label, $value, $hint, $icon])
+                @foreach ([['Mijn studenten', $studentCount, 'Studenten in jouw klassen', '♙'], ['Geplande gesprekken', $upcomingCount, 'Vanaf dit moment', '◷'], ['Behaalde leeruitkomsten', $achieved . ' / ' . $total, 'Van jouw studenten', '✓'], ['Mijn notities', $notesCount, 'Bij gekoppelde studenten', '▤']] as [$label, $value, $hint, $icon])
                     <article class="metric">
                         <div><span>{{ $label }}</span><span class="metric-icon">{{ $icon }}</span>
                         </div><strong>{{ $value }}</strong><small>{{ $hint }}</small>
@@ -109,7 +109,7 @@
                     <div class="section-heading">
                         <div>
                             <p class="eyebrow">BEGELEIDING</p>
-                            <h2>Mijn studenten <span class="count">{{ $students->count() }}</span></h2>
+                            <h2>Mijn studenten <span class="count">{{ $studentCount }}</span></h2>
                         </div>
                         <div class="student-group-summary">
                             <span class="live">Uit de database</span>
@@ -222,7 +222,11 @@
                 </section>
                 <section class="card" id="rapportages">
                     <p class="eyebrow">ONTWIKKELING IN BEELD</p>
-                    <h2>Elke stap vooruit</h2>@php($percentage = $total ? (int) round(($achieved / $total) * 100) : 0)<div class="ring"
+                    <h2>Elke stap vooruit</h2>
+                    @php
+                        $percentage = $total ? (int) round(($achieved / $total) * 100) : 0;
+                    @endphp
+                    <div class="ring"
                         style="--progress: {{ $percentage }}%">
                         <div><strong
                                 @if (!$total) style="font-size:16px;letter-spacing:0" @endif>{{ $total ? $percentage . '%' : 'Nog geen data' }}</strong><span>behaald</span>
@@ -296,6 +300,11 @@
             @endif
             <div class="bottom-columns">
                 <section class="card" id="gesprekken">
+                    @php
+                        $agendaMeetings = $upcoming->concat($meetingRequests)
+                            ->sortBy(fn ($meeting) => $meeting->datum ?? '9999-12-31 23:59:59')
+                            ->values();
+                    @endphp
                     <div class="section-heading">
                         <div>
                             <p class="eyebrow">TIJD VOOR EEN GESPREK</p>
@@ -328,7 +337,7 @@
                             ])
                         </details>
                     @endif
-                    @forelse($upcoming as $meeting)
+                    @forelse($agendaMeetings as $meeting)
                         <article class="meeting">
                             <div class="calendar">
                                 <strong>{{ \Illuminate\Support\Carbon::parse($meeting->datum)->format('d') }}</strong><small>{{ \Illuminate\Support\Carbon::parse($meeting->datum)->format('m.Y') }}</small>
@@ -336,15 +345,44 @@
                             <div>
                                 <h3>{{ $meeting->onderwerp ?: 'Coachgesprek' }}</h3>
                                 <p>{{ $meeting->voornaam }} {{ $meeting->achternaam }}</p>
-                                <small>{{ $dateLabel($meeting->datum) }}</small>
+                                @if ($meeting->onderwerp === 'Gespreksaanvraag')
+                                    <small>{{ $meeting->datum ? $dateLabel($meeting->datum) : 'Geen datum opgegeven' }}</small>
+                                    <p><strong>
+                                        @if ($meeting->afspraken === 'approved')
+                                            Goedgekeurd
+                                        @elseif ($meeting->afspraken === 'rejected')
+                                            Afgekeurd
+                                        @else
+                                            Aangevraagd
+                                        @endif
+                                    </strong></p>
+                                    @if ($meeting->afspraken === 'pending')
+                                        <div class="meeting-request-actions">
+                                            <form method="POST" action="{{ route('docent.meeting-requests.approve', $meeting->idgesprek) }}">
+                                                @csrf @method('PUT')
+                                                <button class="button" type="submit">Goedkeuren</button>
+                                            </form>
+                                            <form method="POST" action="{{ route('docent.meeting-requests.reject', $meeting->idgesprek) }}">
+                                                @csrf @method('PUT')
+                                                <button class="danger" type="submit">Afkeuren</button>
+                                            </form>
+                                        </div>
+                                    @endif
+                                @else
+                                    <small>{{ $dateLabel($meeting->datum) }}</small>
+                                @endif
                                 @if ($meeting->inhoud || $meeting->afspraken)
                                     <details>
                                         <summary>Gespreksdetails</summary>
                                         <p class="preserve">{{ $meeting->inhoud }}</p>
-                                        <p class="preserve">{{ $meeting->afspraken }}</p>
+                                        @if ($meeting->onderwerp !== 'Gespreksaanvraag')
+                                            <p class="preserve">{{ $meeting->afspraken }}</p>
+                                        @endif
                                     </details>
                                 @endif
-                                @include('dashboards.docent-meeting-edit')
+                                @if ($meeting->onderwerp !== 'Gespreksaanvraag')
+                                    @include('dashboards.docent-meeting-edit')
+                                @endif
                             </div>
                     </article>@empty<div class="empty"><span class="empty-symbol">◷</span><strong>Even ruimte in
                                 de agenda</strong>

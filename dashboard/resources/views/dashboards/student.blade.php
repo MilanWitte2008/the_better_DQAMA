@@ -9,35 +9,88 @@
     $schoolYearStart = now()->month >= 8 ? now()->year : now()->year - 1;
     $schoolYear = $schoolYearStart . '–' . ($schoolYearStart + 1);
     $db = \Illuminate\Support\Facades\DB::connection();
-    $phaseColumn = $db->getSchemaBuilder()->hasColumn('leeruitkomsten', 'fase_idfase1') ? 'fase_idfase1' : 'fase_idfase';
-
-    // Tel de behaalde leeruitkomsten voor het voortgangspercentage in de header.
-    $outcomeProgress = $db->table('leeruitkomsten_has_lid')
-        ->where('lid_idlid', $memberId)
-        ->selectRaw('COUNT(*) AS total, SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS completed', ['Behaald'])
-        ->first();
+    $schema = $db->getSchemaBuilder();
+    $phaseColumn = $schema->hasColumn('leeruitkomsten', 'fase_idfase1') ? 'fase_idfase1' : 'fase_idfase';
 
     // Haal persoonlijke leerdoelen op als de tabel aan dit lid gekoppeld is.
     $goalTitleColumn = 'titel';
+    $goalIdColumn = null;
     $personalGoals = collect();
-    if ($db->getSchemaBuilder()->hasTable('doelen') && $db->getSchemaBuilder()->hasColumn('doelen', 'lid_idlid')) {
-        $goalTitleColumn = $db->getSchemaBuilder()->hasColumn('doelen', 'titel') ? 'titel' : 'naam';
-        if ($db->getSchemaBuilder()->hasColumn('doelen', $goalTitleColumn)) {
+    if ($schema->hasTable('doelen') && $schema->hasColumn('doelen', 'lid_idlid')) {
+        $goalTitleColumn = $schema->hasColumn('doelen', 'titel') ? 'titel' : 'naam';
+        $goalPrimary = collect($schema->getIndexes('doelen'))->first(fn (array $index) => $index['primary'] ?? false);
+        $goalIdColumn = $goalPrimary['columns'][0] ?? null;
+        if ($schema->hasColumn('doelen', $goalTitleColumn)) {
             $personalGoals = $db->table('doelen')->where('lid_idlid', $memberId)->orderBy($goalTitleColumn)->get();
         }
     }
 
-    // Sorteer de leeruitkomsten per fase en toon de persoonlijke status.
-    $outcomes = $db->table('leeruitkomsten_has_lid as assignment')
-        ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
-        ->leftJoin('fase', 'fase.idfase', '=', "outcome.$phaseColumn")
-        ->where('assignment.lid_idlid', $memberId)
-        ->orderByRaw('CASE WHEN fase.volgorde IS NULL THEN 1 ELSE 0 END')
-        ->orderBy('fase.volgorde')
-        ->orderByRaw("FIELD(assignment.status, 'Bezig', 'Te doen', 'Behaald')")
-        ->orderBy('outcome.titel')
-        ->select('outcome.titel', 'outcome.omschrijving', 'assignment.status', 'fase.naam as fase_naam')
-        ->get();
+    // Toon de resultaten uit het schema dat ook door het docentdashboard wordt bijgewerkt.
+    $outcomes = collect();
+    $usingModernOutcomes = false;
+    $studentId = $schema->hasTable('student')
+        && $schema->hasColumn('student', 'lid_idlid')
+        && $schema->hasColumn('student', 'idstudent')
+        ? $db->table('student')->where('lid_idlid', $memberId)->value('idstudent')
+        : null;
+    $hasModernOutcomes = $studentId
+        && $schema->hasTable('student_leeruitkomsten')
+        && $schema->hasColumn('student_leeruitkomsten', 'student_idstudent')
+        && $schema->hasColumn('student_leeruitkomsten', 'leeruitkomsten_leeruitkomsten_id')
+        && $schema->hasTable('leeruitkomsten');
+    if ($hasModernOutcomes) {
+        $modernOutcomeColumns = ['outcome.titel', 'assignment.status'];
+        $modernOutcomeColumns[] = $schema->hasColumn('leeruitkomsten', 'omschrijving')
+            ? 'outcome.omschrijving'
+            : \Illuminate\Support\Facades\DB::raw('NULL AS omschrijving');
+        $modernOutcomeColumns[] = $schema->hasColumn('student_leeruitkomsten', 'opmerking')
+            ? 'assignment.opmerking'
+            : \Illuminate\Support\Facades\DB::raw('NULL AS opmerking');
+        if ($schema->hasColumn('student_leeruitkomsten', 'laatste_update')) {
+            $modernOutcomeColumns[] = 'assignment.laatste_update';
+        }
+        $modernOutcomes = $db->table('student_leeruitkomsten as assignment')
+            ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_leeruitkomsten_id')
+            ->where('assignment.student_idstudent', $studentId)
+            ->select($modernOutcomeColumns)
+            ->orderBy('outcome.titel')
+            ->get();
+        if ($modernOutcomes->isNotEmpty()) {
+            $outcomes = $modernOutcomes;
+            $usingModernOutcomes = true;
+        }
+    }
+
+    if ($outcomes->isEmpty() && $schema->hasTable('leeruitkomsten_has_lid')) {
+        $legacyOutcomeColumns = ['outcome.titel', 'assignment.status'];
+        $legacyOutcomeColumns[] = $schema->hasColumn('leeruitkomsten', 'omschrijving')
+            ? 'outcome.omschrijving'
+            : \Illuminate\Support\Facades\DB::raw('NULL AS omschrijving');
+        $legacyOutcomeColumns[] = \Illuminate\Support\Facades\DB::raw('NULL AS opmerking');
+        if ($schema->hasTable('fase') && $schema->hasColumn('leeruitkomsten', $phaseColumn)) {
+            $legacyOutcomeColumns[] = 'fase.naam as fase_naam';
+        } else {
+            $legacyOutcomeColumns[] = \Illuminate\Support\Facades\DB::raw('NULL AS fase_naam');
+        }
+        $legacyOutcomeQuery = $db->table('leeruitkomsten_has_lid as assignment')
+            ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
+            ->where('assignment.lid_idlid', $memberId);
+        if ($schema->hasTable('fase') && $schema->hasColumn('leeruitkomsten', $phaseColumn)) {
+            $legacyOutcomeQuery->leftJoin('fase', 'fase.idfase', '=', "outcome.$phaseColumn")
+                ->orderByRaw('CASE WHEN fase.volgorde IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('fase.volgorde');
+        }
+        $outcomes = $legacyOutcomeQuery
+            ->orderByRaw("FIELD(assignment.status, 'Bezig', 'Te doen', 'Behaald')")
+            ->orderBy('outcome.titel')
+            ->select($legacyOutcomeColumns)
+            ->get();
+    }
+
+    $outcomeProgress = (object) [
+        'total' => $outcomes->count(),
+        'completed' => $outcomes->where('status', 'Behaald')->count(),
+    ];
 
     // Haal de urenregistraties op, nieuwste eerst.
     $hours = $db->table('urenregistratie')
@@ -46,34 +99,57 @@
         ->get();
 
     // Haal de fases van de student op.
-    $phases = $db->table('leeruitkomsten_has_lid as assignment')
-        ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
-        ->join('fase', 'fase.idfase', '=', "outcome.$phaseColumn")
-        ->where('assignment.lid_idlid', $memberId)
-        ->select('fase.idfase', 'fase.naam', 'fase.volgorde')
-        ->selectRaw('COUNT(*) AS outcome_count, SUM(CASE WHEN assignment.status = ? THEN 1 ELSE 0 END) AS completed_count', ['Behaald'])
-        ->groupBy('fase.idfase', 'fase.naam', 'fase.volgorde')
-        ->orderBy('fase.volgorde')
-        ->get()
-        ->map(function ($phase) {
-            $phase->progress = $phase->outcome_count > 0
-                ? (int) round(($phase->completed_count / $phase->outcome_count) * 100)
-                : 0;
+    $phases = collect();
+    if (! $usingModernOutcomes
+        && $schema->hasTable('leeruitkomsten_has_lid')
+        && $schema->hasTable('fase')
+        && $schema->hasColumn('leeruitkomsten', $phaseColumn)) {
+        $phases = $db->table('leeruitkomsten_has_lid as assignment')
+            ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
+            ->join('fase', 'fase.idfase', '=', "outcome.$phaseColumn")
+            ->where('assignment.lid_idlid', $memberId)
+            ->select('fase.idfase', 'fase.naam', 'fase.volgorde')
+            ->selectRaw('COUNT(*) AS outcome_count, SUM(CASE WHEN assignment.status = ? THEN 1 ELSE 0 END) AS completed_count', ['Behaald'])
+            ->groupBy('fase.idfase', 'fase.naam', 'fase.volgorde')
+            ->orderBy('fase.volgorde')
+            ->get()
+            ->map(function ($phase) {
+                $phase->progress = $phase->outcome_count > 0
+                    ? (int) round(($phase->completed_count / $phase->outcome_count) * 100)
+                    : 0;
 
-            return $phase;
-        });
+                return $phase;
+            });
+    } elseif ($usingModernOutcomes
+        && $schema->hasTable('fase')
+        && $schema->hasColumn('leeruitkomsten', $phaseColumn)) {
+        $phases = $db->table('student_leeruitkomsten as assignment')
+            ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_leeruitkomsten_id')
+            ->join('fase', 'fase.idfase', '=', "outcome.$phaseColumn")
+            ->where('assignment.student_idstudent', $studentId)
+            ->select('fase.idfase', 'fase.naam', 'fase.volgorde')
+            ->selectRaw('COUNT(*) AS outcome_count, SUM(CASE WHEN assignment.status = ? THEN 1 ELSE 0 END) AS completed_count', ['Behaald'])
+            ->groupBy('fase.idfase', 'fase.naam', 'fase.volgorde')
+            ->orderBy('fase.volgorde')
+            ->get()
+            ->map(function ($phase) {
+                $phase->progress = $phase->outcome_count > 0
+                    ? (int) round(($phase->completed_count / $phase->outcome_count) * 100)
+                    : 0;
+
+                return $phase;
+            });
+    }
 
     // Haal de vijf nieuwste reflecties op.
     $reflections = $db->table('reflectie')
         ->where('lid_idlid', $memberId)
         ->orderByDesc('datum')
         ->orderByDesc('idreflectie')
-        ->limit(5)
         ->get();
 
     // Ondersteun zowel studentprofielen als gesprekken uit de bestaande ledenkoppeling.
     $conversations = collect();
-    $schema = $db->getSchemaBuilder();
     $hasConversationFields = $schema->hasTable('gesprekken')
         && $schema->hasColumn('gesprekken', 'datum')
         && $schema->hasColumn('gesprekken', 'onderwerp')
@@ -164,6 +240,7 @@
         'phases' => $phases,
         'reflections' => $reflections,
         'personalGoals' => $personalGoals,
+        'goalIdColumn' => $goalIdColumn,
         'outcomes' => $outcomes,
         'goalTitleColumn' => $goalTitleColumn,
         'conversations' => $conversations,
@@ -179,6 +256,16 @@
 @section('welcome-subtitle', 'Je totale voortgang is ' . $progressPercent . '%. Hier zie je jouw ontwikkeling, leerdoelen en uren.')
 
 @section('content')
+    @if (session('success'))
+        <p class="info-strip" role="status">{{ session('success') }}</p>
+    @endif
+    @if ($errors->any())
+        <div class="info-strip" role="alert">
+            @foreach ($errors->all() as $error)
+                <p>{{ $error }}</p>
+            @endforeach
+        </div>
+    @endif
     {{-- Toon de belangrijkste gegevens over de ontwikkeling van de student. --}}
     <div class="section-heading" id="ontwikkeling" data-dashboard-section="ontwikkeling">
         <div>
@@ -249,11 +336,30 @@
     <div class="content-grid">
         <section class="panel" id="leerdoelen" data-dashboard-section="leerdoelen">
             <h3>Mijn leerdoelen</h3>
-            <p class="info-strip">Houd je persoonlijke doelen bij en voeg een nieuw ontwikkelpunt toe.</p>
+            <p class="info-strip">Houd je persoonlijke doelen bij. Je kunt je eigen leerdoelen aanpassen of verwijderen.</p>
             @if ($studentData['personalGoals']->isNotEmpty())
                 <ul class="personal-goal-list {{ $studentData['personalGoals']->count() > 5 ? 'personal-goal-list-scroll' : '' }}">
                     @foreach ($studentData['personalGoals'] as $goal)
-                        <li><span>{{ $goal->{$studentData['goalTitleColumn']} }}<small>Persoonlijk leerdoel</small></span></li>
+                        <li class="student-record">
+                            <span>{{ $goal->{$studentData['goalTitleColumn']} }}<small>Persoonlijk leerdoel</small></span>
+                            @if ($studentData['goalIdColumn'])
+                                <details class="student-record-actions">
+                                    <summary class="record-toggle">Aanpassen of verwijderen</summary>
+                                    <form class="simple-form" method="POST" action="{{ route('student.goals.update', $goal->{$studentData['goalIdColumn']}) }}">
+                                        @csrf
+                                        @method('PUT')
+                                        <label class="sr-only" for="goal-{{ $goal->{$studentData['goalIdColumn']} }}">Leerdoel aanpassen</label>
+                                        <input id="goal-{{ $goal->{$studentData['goalIdColumn']} }}" type="text" name="titel" maxlength="255" required value="{{ $goal->{$studentData['goalTitleColumn']} }}">
+                                        <button class="record-button" type="submit">Aanpassen</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('student.goals.destroy', $goal->{$studentData['goalIdColumn']}) }}" onsubmit="return confirm('Weet je zeker dat je dit leerdoel wilt verwijderen?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="record-button record-delete" type="submit">Verwijderen</button>
+                                    </form>
+                                </details>
+                            @endif
+                        </li>
                     @endforeach
                 </ul>
             @else
@@ -263,13 +369,12 @@
                 @csrf
                 <label for="goal-title">Nieuw leerdoel</label>
                 <input id="goal-title" type="text" name="titel" maxlength="255" required value="{{ old('titel') }}" placeholder="Bijvoorbeeld: presenteren verbeteren">
-                @error('titel')<small class="form-error">{{ $message }}</small>@enderror
                 <button class="primary-button" type="submit">Leerdoel opslaan</button>
             </form>
         </section>
 
-        <section class="panel" id="leeruitkomsten" data-dashboard-section="leeruitkomsten">
-            <h3>Leeruitkomsten</h3>
+        <section class="panel" id="resultaten" data-dashboard-section="resultaten">
+            <h3>Mijn resultaten</h3>
             @if ($studentData['outcomes']->isNotEmpty())
                 <div class="scroll-field">
                     <ul class="goal-list">
@@ -281,6 +386,7 @@
                                     data-outcome-title="{{ $outcome->titel ?: 'Leeruitkomst zonder titel' }}"
                                     data-outcome-status="{{ $outcome->status ?: 'Onbekend' }}"
                                     data-outcome-description="{{ $outcome->omschrijving ?? '' }}"
+                                    data-outcome-comment="{{ $outcome->opmerking ?? '' }}"
                                     aria-haspopup="dialog"
                                     aria-controls="outcome-dialog"
                                 >
@@ -291,6 +397,9 @@
                                 </button>
                                 @if ($outcome->omschrijving)
                                     <small class="widget-detail">{{ $outcome->omschrijving }}</small>
+                                @endif
+                                @if ($outcome->opmerking)
+                                    <small class="widget-detail">Feedback van je coach: {{ $outcome->opmerking }}</small>
                                 @endif
                             </li>
                         @endforeach
@@ -309,6 +418,7 @@
         </div>
         <p class="outcome-dialog-status" id="outcome-dialog-status"></p>
         <p class="outcome-dialog-description" id="outcome-dialog-description"></p>
+        <p class="outcome-dialog-description" id="outcome-dialog-comment"></p>
     </dialog>
 
     <script>
@@ -316,12 +426,14 @@
         const outcomeDialogTitle = document.getElementById('outcome-dialog-title');
         const outcomeDialogStatus = document.getElementById('outcome-dialog-status');
         const outcomeDialogDescription = document.getElementById('outcome-dialog-description');
+        const outcomeDialogComment = document.getElementById('outcome-dialog-comment');
 
         document.querySelectorAll('.goal-trigger').forEach((trigger) => {
             trigger.addEventListener('click', () => {
                 outcomeDialogTitle.textContent = trigger.dataset.outcomeTitle;
                 outcomeDialogStatus.textContent = trigger.dataset.outcomeStatus;
                 outcomeDialogDescription.textContent = trigger.dataset.outcomeDescription || 'Geen omschrijving beschikbaar.';
+                outcomeDialogComment.textContent = trigger.dataset.outcomeComment ? `Feedback van je coach: ${trigger.dataset.outcomeComment}` : '';
                 outcomeDialog.showModal();
             });
         });
@@ -344,16 +456,57 @@
             <ul class="updates-list">
                 @foreach ($studentData['conversations'] as $conversation)
                     <li>
-                        @if ($conversation->datum)<time>{{ \Illuminate\Support\Carbon::parse($conversation->datum)->format('d-m-Y') }}</time><br>@endif
-                        <strong>{{ $conversation->onderwerp ?: 'Coachgesprek' }}</strong>
+                        @if ($conversation->onderwerp === \App\DocentDashboard::MEETING_REQUEST_TOPIC)
+                            <strong>Gespreksaanvraag:
+                                @switch($conversation->afspraken)
+                                    @case('approved') Goedgekeurd @break
+                                    @case('rejected') Afgekeurd @break
+                                    @default In afwachting van de docent
+                                @endswitch
+                            </strong>
+                            @if ($conversation->datum)
+                                <small class="widget-detail">Voorgestelde datum: {{ \Illuminate\Support\Carbon::parse($conversation->datum)->format('d-m-Y H:i') }}</small>
+                            @endif
+                        @else
+                            @if ($conversation->datum)<time>{{ \Illuminate\Support\Carbon::parse($conversation->datum)->format('d-m-Y') }}</time><br>@endif
+                            <strong>{{ $conversation->onderwerp ?: 'Coachgesprek' }}</strong>
+                        @endif
                         @if ($conversation->inhoud)<small class="widget-detail">{{ $conversation->inhoud }}</small>@endif
-                        @if ($conversation->afspraken)<small class="widget-detail">Afspraken: {{ $conversation->afspraken }}</small>@endif
+                        @if ($conversation->afspraken && $conversation->onderwerp !== \App\DocentDashboard::MEETING_REQUEST_TOPIC)<small class="widget-detail">Afspraken: {{ $conversation->afspraken }}</small>@endif
                     </li>
                 @endforeach
             </ul>
         @else
             <p class="info-strip">Er zijn nog geen coachgesprekken aan jouw account gekoppeld.</p>
         @endif
+        <details class="meeting-request" @if ($errors->has('docent_id') || $errors->has('datum') || $errors->has('gesprekaanvraag')) open @endif>
+            <summary class="primary-button meeting-request-toggle">Gesprek aanvragen</summary>
+            <p class="muted-line">Kies met welke docent je een gesprek wilt aanvragen.</p>
+            <form class="simple-form student-entry-form" method="POST" action="{{ route('student.meetings.request') }}">
+                @csrf
+                <label for="meeting-request-coach">Docent</label>
+                @if ($coaches->isNotEmpty())
+                    <select id="meeting-request-coach" name="docent_id" required>
+                        <option value="">Kies een docent</option>
+                        @foreach ($coaches as $coach)
+                            <option value="{{ $coach->docent_id }}" @selected(old('docent_id') == $coach->docent_id)>
+                                {{ trim($coach->voornaam.' '.$coach->achternaam) }}
+                            </option>
+                        @endforeach
+                    </select>
+                @else
+                    <select id="meeting-request-coach" disabled>
+                        <option>Geen actieve docent gekoppeld</option>
+                    </select>
+                    <p class="muted-line">Er is geen actieve docent aan jouw account gekoppeld.</p>
+                @endif
+                <label for="meeting-request-date">Voorgestelde datum en tijd</label>
+                <input id="meeting-request-date" type="datetime-local" name="datum" required min="{{ now()->format('Y-m-d\TH:i') }}" value="{{ old('datum') }}">
+                <label for="meeting-request-message">Bericht aan de docent (optioneel)</label>
+                <textarea id="meeting-request-message" name="bericht" rows="3" maxlength="1000" placeholder="Waarover wil je praten?">{{ old('bericht') }}</textarea>
+                <button class="primary-button" type="submit" @disabled($coaches->isEmpty())>Aanvraag versturen</button>
+            </form>
+        </details>
     </section>
     <section class="panel" id="notities" data-dashboard-section="notities">
         <h3>Notities van je docent</h3>
@@ -378,11 +531,28 @@
             @if ($studentData['reflections']->isNotEmpty())
                 <ul class="updates-list">
                     @foreach ($studentData['reflections'] as $reflection)
-                        <li>
-                            @if ($reflection->datum)
-                                <time>{{ \Illuminate\Support\Carbon::parse($reflection->datum)->format('d-m-Y') }}</time>
-                            @endif
-                            {{ $reflection->inhoud ?: 'Reflectie zonder inhoud' }}
+                        <li class="student-reflection-item">
+                            <div>
+                                @if ($reflection->datum)
+                                    <time>{{ \Illuminate\Support\Carbon::parse($reflection->datum)->format('d-m-Y') }}</time><br>
+                                @endif
+                                {{ $reflection->inhoud ?: 'Reflectie zonder inhoud' }}
+                            </div>
+                            <details class="student-record-actions">
+                                <summary class="record-toggle">Aanpassen of verwijderen</summary>
+                                <form class="simple-form" method="POST" action="{{ route('student.reflections.update', $reflection->idreflectie) }}">
+                                    @csrf
+                                    @method('PUT')
+                                    <label class="sr-only" for="reflection-{{ $reflection->idreflectie }}">Reflectie aanpassen</label>
+                                    <textarea id="reflection-{{ $reflection->idreflectie }}" name="inhoud" rows="3" maxlength="5000" required>{{ $reflection->inhoud }}</textarea>
+                                    <button class="record-button" type="submit">Aanpassen</button>
+                                </form>
+                                <form method="POST" action="{{ route('student.reflections.destroy', $reflection->idreflectie) }}" onsubmit="return confirm('Weet je zeker dat je deze reflectie wilt verwijderen?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="record-button record-delete" type="submit">Verwijderen</button>
+                                </form>
+                            </details>
                         </li>
                     @endforeach
                 </ul>
@@ -393,7 +563,6 @@
                 @csrf
                 <label for="reflection-content">Nieuwe reflectie</label>
                 <textarea id="reflection-content" name="inhoud" rows="4" maxlength="5000" required placeholder="Wat heb je geleerd en wat wil je verder ontwikkelen?">{{ old('inhoud') }}</textarea>
-                @error('inhoud')<small class="form-error">{{ $message }}</small>@enderror
                 <button class="primary-button" type="submit">Reflectie bewaren</button>
             </form>
         </section>

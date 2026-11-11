@@ -56,6 +56,7 @@ body.dashboard-navigation .topbar-actions form {margin:0}
 body.dashboard-navigation .topbar .logout-button {border:0;border-radius:0;padding:0;background:none;color:white;font-size:12px;cursor:pointer}
 body.dashboard-navigation .topbar .notification-wrapper {position:relative}
 body.dashboard-navigation .topbar .notification {
+    position:relative;
     width:44px;height:44px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.3);
     border-radius:12px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;
     transition:background 160ms ease,border-color 160ms ease,transform 160ms ease;
@@ -82,6 +83,19 @@ body.dashboard-navigation .topbar .notification-panel-icon {
     background:#eaf5fc;color:#127eb5;
 }
 body.dashboard-navigation .topbar .notification-panel p {margin:16px 0 0;color:#526a7b;font-size:14px;line-height:1.6}
+body.dashboard-navigation .topbar .notification-count {
+    position:absolute;top:-6px;right:-6px;display:grid;place-items:center;min-width:19px;height:19px;padding:0 5px;
+    border:2px solid #183c57;border-radius:20px;background:#d54848;color:#fff;font-size:10px;font-weight:700;
+}
+body.dashboard-navigation .topbar .notification-list {display:grid;gap:8px;max-height:300px;overflow:auto;margin:16px 0 0;padding:0;list-style:none}
+body.dashboard-navigation .topbar .notification-list li {border-radius:8px;background:#f3f8fb}
+body.dashboard-navigation .topbar .notification-list li.notification-unread {background:#eaf5fc}
+body.dashboard-navigation .topbar .notification-list form {margin:0}
+body.dashboard-navigation .topbar .notification-list button {display:grid;width:100%;gap:5px;padding:11px;border:0;background:transparent;color:#214964;text-align:left;cursor:pointer}
+body.dashboard-navigation .topbar .notification-list strong {font-size:12px}
+body.dashboard-navigation .topbar .notification-list span,
+body.dashboard-navigation .topbar .notification-list time {font-size:11px;line-height:1.5;color:#526a7b}
+body.dashboard-navigation .topbar .notification-list time {color:#7792a5}
 @keyframes notification-appear {
     from {opacity:0;transform:translateY(-5px)}
     to {opacity:1;transform:translateY(0)}
