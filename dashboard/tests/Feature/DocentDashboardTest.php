@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\DocentDashboard;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\MessageBag;
 use Illuminate\Support\ViewErrorBag;
@@ -136,7 +136,7 @@ class DocentDashboardTest extends TestCase
         $this->assertDatabaseMissing('begeleidingsnotitie', ['id_notitie' => $note->id_notitie]);
     }
 
-    public function test_docent_can_manage_meetings_and_change_outcomes_and_class(): void
+    public function test_docent_can_manage_meetings_and_outcomes_but_not_student_profiles(): void
     {
         $this->actingAs(User::findOrFail(1));
         $input = ['student_idstudent' => 11, 'onderwerp' => 'Evaluatie', 'datum' => '2026-11-10T10:30', 'inhoud' => 'Verslag', 'afspraken' => 'Vervolg'];
@@ -147,8 +147,9 @@ class DocentDashboardTest extends TestCase
         $this->put('/docent/leeruitkomsten/2', ['status' => 'Behaald', 'opmerking' => 'Goed gedaan'])->assertRedirect('/dashboard?student=11#student-detail');
         $this->assertDatabaseHas('student_leeruitkomsten', ['id_leeruitkomsten' => 2, 'status' => 'Behaald', 'vooruitgang' => 100]);
         $this->get('/dashboard?student=11')->assertOk()->assertSee('100%')->assertSee('Goed gedaan');
-        $this->put('/docent/studenten/11', ['klas' => 'SD3A', 'opleiding' => 'ICT'])->assertRedirect();
-        $this->assertDatabaseHas('student', ['idstudent' => 11, 'klas' => 'SD3A']);
+        $this->put('/docent/studenten/11', ['klas' => 'SD3A', 'opleiding' => 'ICT'])->assertForbidden();
+        $this->assertDatabaseHas('student', ['idstudent' => 11, 'klas' => 'SD2A', 'opleiding' => 'Software Development']);
+        $this->get('/dashboard?student=11')->assertOk()->assertSee('SD2A')->assertSee('Software Development')->assertDontSee('Studentgegevens bewerken');
         $this->delete('/docent/gesprekken/'.$id)->assertRedirect();
         $this->assertDatabaseMissing('gesprekken', ['idgesprek' => $id]);
     }
@@ -175,7 +176,7 @@ class DocentDashboardTest extends TestCase
         $this->put('/docent/leeruitkomsten/1', ['status' => 'Onbekend'])->assertSessionHasErrors('status');
         $this->post('/docent/gesprekken', ['student_idstudent' => 11, 'onderwerp' => 'Ongeldig', 'datum' => 'morgen'])->assertSessionHasErrors('datum');
         $this->assertDatabaseMissing('gesprekken', ['onderwerp' => 'Ongeldig']);
-        $this->put('/docent/studenten/11', ['klas' => str_repeat('x', 21)])->assertSessionHasErrors('klas');
+        $this->put('/docent/studenten/11', ['klas' => str_repeat('x', 21)])->assertForbidden();
     }
 
     public function test_other_roles_and_inactive_docents_cannot_write(): void
@@ -213,7 +214,7 @@ class DocentDashboardTest extends TestCase
 
     public function test_outcomes_can_be_assigned_once_then_edited(): void
     {
-        $this->actingAs(User::findOrFail(1))->get('/dashboard?student=12')->assertOk()->assertSee('Leeruitkomst toevoegen');
+        $this->actingAs(User::findOrFail(1))->get('/dashboard?student=12')->assertOk()->assertSee('STUDENTDOSSIER');
         $input = ['leeruitkomsten_leeruitkomsten_id' => 1];
         $this->post('/docent/studenten/12/leeruitkomsten', $input)->assertRedirect('/dashboard?student=12#student-detail');
         $this->post('/docent/studenten/12/leeruitkomsten', $input)->assertRedirect();
@@ -231,37 +232,114 @@ class DocentDashboardTest extends TestCase
         $this->assertDatabaseHas('gesprekken', ['onderwerp' => 'Met seconden', 'datum' => '2026-11-10 10:30:00']);
     }
 
+    private function signInAsAdmin(): void
+    {
+        $this->withoutVite();
+        DB::table('rol')->insert(['idrol' => 3, 'naam' => 'Admin']);
+        DB::table('lid')->insert(['idlid' => 3, 'voornaam' => 'Beheerder', 'email' => 'beheer@example.test', 'status' => 'actief', 'rol_idrol' => 3]);
+        $this->actingAs(User::findOrFail(3));
+    }
+
+    public function test_admin_updates_student_profile_and_docent_sees_changes_read_only(): void
+    {
+        $this->signInAsAdmin();
+        $this->get('/beheer/gebruikers/11/bewerken')->assertOk()->assertSee('name="klas"', false)->assertSee('SD2A');
+        $input = ['voornaam' => 'Ada', 'achternaam' => 'Voorbeeld', 'email' => '11@example.test', 'rol_idrol' => 2, 'status' => 'actief', 'klas' => 'SD3A', 'opleiding' => 'ICT', 'studentnummer' => 'S11'];
+        $this->put('/beheer/gebruikers/11', $input)->assertRedirect('/dashboard#gebruikers');
+        $this->assertDatabaseHas('student', ['idstudent' => 11, 'klas' => 'SD3A', 'opleiding' => 'ICT']);
+        $this->actingAs(User::findOrFail(1))->get('/dashboard?student=11')->assertOk()->assertSee('SD3A')->assertSee('ICT')->assertDontSee('Studentgegevens bewerken');
+        foreach ([1, 11] as $userId) {
+            $this->actingAs(User::findOrFail($userId))->put('/beheer/gebruikers/11', array_replace($input, ['klas' => 'Verboden']))->assertForbidden();
+        }
+        $this->assertDatabaseHas('student', ['idstudent' => 11, 'klas' => 'SD3A']);
+        $this->actingAs(User::findOrFail(3))->put('/beheer/gebruikers/11', array_replace($input, ['klas' => '', 'opleiding' => '']))->assertRedirect();
+        $this->assertDatabaseHas('student', ['idstudent' => 11, 'klas' => null, 'opleiding' => null]);
+    }
+
+    public function test_invalid_student_profile_does_not_change_account_or_profile(): void
+    {
+        $this->signInAsAdmin();
+        $this->put('/beheer/gebruikers/11', [
+            'voornaam' => 'Gewijzigd', 'achternaam' => 'Voorbeeld', 'email' => '11@example.test',
+            'rol_idrol' => 2, 'status' => 'actief', 'klas' => str_repeat('x', 21),
+            'opleiding' => str_repeat('x', 51), 'studentnummer' => 'S12',
+        ])->assertSessionHasErrors(['klas', 'opleiding', 'studentnummer']);
+        $this->assertDatabaseHas('lid', ['idlid' => 11, 'voornaam' => 'Ada']);
+        $this->assertDatabaseHas('student', ['idstudent' => 11, 'klas' => 'SD2A', 'studentnummer' => 'S11']);
+    }
+
+    public function test_admin_creates_student_profile_and_preserves_omitted_fields_on_update(): void
+    {
+        $this->signInAsAdmin();
+        $input = $this->newStudentInput(['rol_idrol' => 2, 'status' => 'actief', 'studentnummer' => 'S99']);
+        $this->post('/beheer/gebruikers', $input)->assertRedirect('/dashboard');
+        $member = User::where('email', 'nieuw@example.test')->firstOrFail();
+        $this->assertDatabaseHas('student', ['lid_idlid' => $member->getKey(), 'klas' => 'SD1', 'opleiding' => 'ICT', 'studentnummer' => 'S99']);
+        unset($input['klas'], $input['opleiding'], $input['studentnummer']);
+        $this->put('/beheer/gebruikers/'.$member->getKey(), $input)->assertRedirect();
+        $this->assertDatabaseHas('student', ['lid_idlid' => $member->getKey(), 'klas' => 'SD1', 'opleiding' => 'ICT', 'studentnummer' => 'S99']);
+        $this->assertDatabaseCount('student', 6);
+    }
+
+    public function test_student_detail_is_read_only_and_shows_saved_information(): void
+    {
+        DB::table('student_leeruitkomsten')->where('id_leeruitkomsten', 1)->update(['opmerking' => 'Zelfstandig afgerond']);
+        $response = $this->actingAs(User::findOrFail(1))->get('/dashboard?student=11');
+        $response->assertOk()->assertSee('Zelfstandig afgerond')->assertSee('S11')->assertSee('SD2A');
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $this->assertSame(0, $xpath->query('//*[@id="student-detail"]//form | //*[@id="student-detail"]//input | //*[@id="student-detail"]//select | //*[@id="student-detail"]//textarea')->length);
+        $this->assertSame(4, $xpath->query('//*[@id="student-detail"]//dl/div')->length);
+        $response->assertDontSee('Nieuwe leeruitkomst maken')->assertDontSee('Voortgang bewerken');
+    }
+
     private function newStudentInput(array $overrides = []): array
     {
         return array_replace(['voornaam' => 'Nieuwe', 'achternaam' => 'Student', 'email' => 'nieuw@example.test', 'password' => 'veilig-test-wachtwoord', 'password_confirmation' => 'veilig-test-wachtwoord', 'klas' => 'SD1', 'opleiding' => 'ICT'], $overrides);
     }
 
-    public function test_docent_can_create_student_account_profile_and_assignment(): void
+    public function test_admin_creates_missing_teacher_profile_without_duplicating_existing_profiles(): void
+    {
+        $this->signInAsAdmin();
+        DB::table('rol')->where('idrol', 1)->update(['naam' => 'Coach']);
+        DB::table('coach')->where('lid_idlid', 1)->delete();
+        $this->get('/beheer/gebruikers/1/bewerken')->assertOk()->assertSee('Docent')->assertDontSee('>Coach<', false);
+        $input = ['voornaam' => 'Docent', 'achternaam' => 'Voorbeeld', 'email' => '1@example.test', 'rol_idrol' => 1, 'status' => 'actief'];
+        $this->put('/beheer/gebruikers/1', $input)->assertRedirect();
+        $profileId = DB::table('coach')->where('lid_idlid', 1)->value('idcoach');
+        $this->assertNotNull($profileId);
+        $this->put('/beheer/gebruikers/1', $input)->assertRedirect();
+        $this->assertSame(1, DB::table('coach')->where('lid_idlid', 1)->count());
+        $this->assertEquals($profileId, DB::table('coach')->where('lid_idlid', 1)->value('idcoach'));
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertDontSee('Je account heeft nog geen coachprofiel');
+        foreach (['Coach', 'Docent'] as $name) {
+            $role = new Role;
+            $role->naam = $name;
+            $this->assertSame('Docent', $role->displayName());
+        }
+    }
+
+    public function test_docent_cannot_create_student_account_profile_or_assignment(): void
     {
         $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertDontSee('Student toevoegen');
         $response = $this->post('/docent/studenten', $this->newStudentInput(['rol_idrol' => 1]));
-        $response->assertRedirect();
-        $member = User::where('email', 'nieuw@example.test')->firstOrFail();
-        $this->assertSame(2, $member->rol_idrol);
-        $this->assertTrue(Hash::check('veilig-test-wachtwoord', $member->wachtwoord));
-        $studentId = DB::table('student')->where('lid_idlid', $member->getKey())->value('idstudent');
-        $this->assertDatabaseHas('student_coach', ['student_idstudent' => $studentId, 'coach_idcoach' => 1, 'status' => 'actief']);
-        $this->get('/dashboard?student='.$studentId)->assertOk()->assertSee('nieuw@example.test')->assertDontSee($member->wachtwoord);
-        $this->app['auth']->forgetGuards();
-        $this->post('/login', ['email' => 'nieuw@example.test', 'password' => 'veilig-test-wachtwoord'])->assertRedirect('/dashboard');
-        $this->assertAuthenticatedAs($member);
+        $response->assertForbidden();
+        $this->assertDatabaseMissing('lid', ['email' => 'nieuw@example.test']);
+        $this->assertDatabaseCount('student', 5);
+        $this->assertDatabaseCount('student_coach', 5);
     }
 
     public function test_invalid_student_creation_writes_nothing(): void
     {
         $this->actingAs(User::findOrFail(1));
-        $this->post('/docent/studenten', $this->newStudentInput(['email' => '11@example.test', 'password_confirmation' => 'anders']))->assertSessionHasErrors(['email', 'password']);
+        $this->post('/docent/studenten', $this->newStudentInput(['email' => '11@example.test', 'password_confirmation' => 'anders']))->assertForbidden();
         $this->assertDatabaseCount('lid', 7);
         $this->assertDatabaseCount('student', 5);
         $this->assertDatabaseCount('student_coach', 5);
     }
 
-    public function test_only_active_docents_with_profiles_can_create_students(): void
+    public function test_students_and_docents_without_profiles_cannot_create_students(): void
     {
         $this->actingAs(User::findOrFail(11))->post('/docent/studenten', $this->newStudentInput())->assertForbidden();
         DB::table('coach')->where('lid_idlid', 1)->delete();
@@ -273,7 +351,7 @@ class DocentDashboardTest extends TestCase
     {
         DB::table('student_leeruitkomsten')->delete();
         DB::table('leeruitkomsten')->delete();
-        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('Nog geen data')->assertSee('Leeruitkomst toevoegen');
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('Nog geen data')->assertSee('Dossier bekijken');
         $this->post('/docent/studenten/11/leeruitkomsten/nieuw', ['titel' => 'Zelfstandig programmeren', 'omschrijving' => 'Een werkende applicatie maken'])->assertRedirect();
         $id = DB::table('student_leeruitkomsten')->value('id_leeruitkomsten');
         $this->get('/dashboard')->assertOk()->assertSee('--progress: 0%', false)->assertDontSee('Nog geen data');

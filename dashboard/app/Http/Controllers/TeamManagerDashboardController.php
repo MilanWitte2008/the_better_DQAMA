@@ -85,21 +85,43 @@ class TeamManagerDashboardController extends Controller
                 ->orderBy('member.voornaam')
                 ->get();
 
-            $progressByStudent = DB::table('leeruitkomsten_has_lid')
+            if (Schema::hasTable('leeruitkomsten_has_lid')) {
+                $assignments = DB::table('leeruitkomsten_has_lid')->select('lid_idlid', 'leeruitkomsten_id', 'status');
+            } else {
+                $assignments = DB::table('student_leeruitkomsten as outcome_assignment')
+                    ->join('student as profile', 'profile.idstudent', '=', 'outcome_assignment.student_idstudent')
+                    ->select('profile.lid_idlid', 'outcome_assignment.leeruitkomsten_leeruitkomsten_id as leeruitkomsten_id', 'outcome_assignment.status');
+            }
+            $progressByStudent = DB::query()->fromSub(clone $assignments, 'assignment')
                 ->select('lid_idlid')
                 ->selectRaw('COUNT(*) AS total_outcomes')
                 ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS completed_outcomes', ['Behaald'])
                 ->groupBy('lid_idlid');
 
-            $reflectionUpdates = DB::table('reflectie')
+            if (Schema::hasColumn('reflectie', 'lid_idlid')) {
+                $reflections = DB::table('reflectie')->select('lid_idlid', 'datum');
+            } else {
+                $reflections = DB::table('reflectie as reflection')
+                    ->join('student_leeruitkomsten as outcome_assignment', 'outcome_assignment.id_leeruitkomsten', '=', 'reflection.student_leeruitkomsten_id_leeruitkomsten')
+                    ->join('student as profile', 'profile.idstudent', '=', 'outcome_assignment.student_idstudent')
+                    ->select('profile.lid_idlid', 'reflection.datum');
+            }
+            $reflectionUpdates = DB::query()->fromSub($reflections, 'reflection')
                 ->select('lid_idlid')
                 ->selectRaw('MAX(datum) AS last_reflection')
                 ->groupBy('lid_idlid');
 
-            $hourUpdates = DB::table('urenregistratie')
-                ->select('lid_id AS lid_idlid')
+            if (Schema::hasColumn('urenregistratie', 'lid_id')) {
+                $hours = DB::table('urenregistratie')->select('lid_id as lid_idlid', 'datum');
+            } else {
+                $hours = DB::table('urenregistratie as entry')
+                    ->join('student as profile', 'profile.idstudent', '=', 'entry.student_id')
+                    ->select('profile.lid_idlid', 'entry.datum');
+            }
+            $hourUpdates = DB::query()->fromSub($hours, 'entry')
+                ->select('lid_idlid')
                 ->selectRaw('MAX(datum) AS last_hour_entry')
-                ->groupBy('lid_id');
+                ->groupBy('lid_idlid');
 
             $students = DB::table('groep_has_lid as membership')
                 ->join('lid as member', 'member.idlid', '=', 'membership.idlid')
@@ -122,7 +144,7 @@ class TeamManagerDashboardController extends Controller
             $groupOutcomeAssignments = DB::table('groep_has_lid as membership')
                 ->join('lid as member', 'member.idlid', '=', 'membership.idlid')
                 ->join('rol', 'rol.idrol', '=', 'member.rol_idrol')
-                ->join('leeruitkomsten_has_lid as assignment', 'assignment.lid_idlid', '=', 'member.idlid')
+                ->joinSub(clone $assignments, 'assignment', 'assignment.lid_idlid', '=', 'member.idlid')
                 ->where('membership.idgroep', $selectedGroup->idgroep)
                 ->whereRaw('LOWER(rol.naam) = ?', ['student'])
                 ->select('assignment.leeruitkomsten_id')
@@ -185,6 +207,9 @@ class TeamManagerDashboardController extends Controller
         $data = $request->validate([
             'groepnaam' => ['required', 'string', 'max:45'],
         ]);
+        if (! Schema::hasTable('groep') || ! Schema::hasTable('groep_has_lid')) {
+            return back()->withErrors(['groepnaam' => 'Groepsbeheer is nog niet ingericht. Laat de database-migraties uitvoeren.'])->withInput();
+        }
 
         $groupId = DB::transaction(function () use ($data, $user): int {
             $groupId = DB::table('groep')->insertGetId([
@@ -307,7 +332,9 @@ class TeamManagerDashboardController extends Controller
             ->values();
 
         foreach ($activeStudents as $memberId) {
-            DB::table('student')->insertOrIgnore(['lid_idlid' => $memberId]);
+            if (! DB::table('student')->where('lid_idlid', $memberId)->exists()) {
+                DB::table('student')->insert(['lid_idlid' => $memberId]);
+            }
         }
 
         $activeCoaches = DB::table('groep_has_lid as membership')
@@ -321,7 +348,9 @@ class TeamManagerDashboardController extends Controller
             ->values();
 
         foreach ($activeCoaches as $memberId) {
-            DB::table('coach')->insertOrIgnore(['lid_idlid' => $memberId]);
+            if (! DB::table('coach')->where('lid_idlid', $memberId)->exists()) {
+                DB::table('coach')->insert(['lid_idlid' => $memberId]);
+            }
         }
 
         $assignments = DB::table('groep_has_lid as student_membership')
@@ -349,12 +378,14 @@ class TeamManagerDashboardController extends Controller
             ])
             ->all();
 
-        foreach (array_chunk($assignments, 500) as $chunk) {
-            DB::table('student_coach')->upsert(
-                $chunk,
-                ['student_idstudent', 'coach_idcoach'],
-                ['status', 'einddatum'],
-            );
+        foreach ($assignments as $assignment) {
+            $query = DB::table('student_coach')->where('student_idstudent', $assignment['student_idstudent'])
+                ->where('coach_idcoach', $assignment['coach_idcoach']);
+            if ($query->exists()) {
+                $query->update(['status' => 'actief', 'einddatum' => null]);
+            } else {
+                DB::table('student_coach')->insert($assignment);
+            }
         }
     }
 
