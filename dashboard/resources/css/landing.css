@@ -2214,7 +2214,7 @@
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: url("/images/landing/neon-waves.jpg") left center/cover
+    background: url("../images/landing/neon-waves.jpg") left center/cover
         no-repeat;
     opacity: 0.21;
 }
