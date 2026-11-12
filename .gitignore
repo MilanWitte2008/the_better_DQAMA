@@ -1,3 +1,5 @@
 
 /dashboard/.env
 /dashboard/storage/logs/laravel.log
+leerlingbegeleiding-met-extra-demo-data.sql
+extra-demo-data-import.sql
