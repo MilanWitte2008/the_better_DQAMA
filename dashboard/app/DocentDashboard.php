@@ -3,6 +3,7 @@
 namespace App;
 
 use App\Models\User;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -137,17 +138,66 @@ class DocentDashboard
             || ! Schema::hasColumn('gesprekken', 'onderwerp')
             || ! Schema::hasColumn('gesprekken', 'inhoud')
             || ! Schema::hasColumn('gesprekken', 'afspraken')
-            || ! Schema::hasTable('gesprekken_has_lid')) {
+            || ! Schema::hasTable('gesprekken_has_lid')
+            || ! Schema::hasTable('lid')
+            || ! Schema::hasColumn('lid', 'idlid')
+            || ! Schema::hasColumn('lid', 'voornaam')
+            || ! Schema::hasColumn('lid', 'achternaam')
+            || ! Schema::hasColumn('lid', 'rol_idrol')
+            || ! Schema::hasColumn('lid', 'status')
+            || ! Schema::hasTable('rol')
+            || ! Schema::hasColumn('rol', 'idrol')
+            || ! Schema::hasColumn('rol', 'naam')) {
             return collect();
         }
 
-        return $this->legacyMeetings($user, $this->studentMemberIds($user), true)
-            ->where('g.onderwerp', self::MEETING_REQUEST_TOPIC)
-            ->where(fn ($query) => $query->whereNull('g.afspraken')->orWhere('g.afspraken', '<>', 'rejected'))
+        return DB::table('gesprekken as g')
+            ->join('gesprekken_has_lid as student_link', 'student_link.gesprekken_idgesprek', '=', 'g.idgesprek')
+            ->join('lid as l', 'l.idlid', '=', 'student_link.lid_idlid')
+            ->join('rol as student_role', 'student_role.idrol', '=', 'l.rol_idrol')
+            ->whereIn('g.idgesprek', $this->visibleConversationRequestIds($user))
+            ->whereRaw('LOWER(student_role.naam) = ?', ['student'])
+            ->whereRaw('LOWER(l.status) = ?', ['actief'])
+            ->select('g.idgesprek', 'student_link.lid_idlid as student_idstudent', 'g.datum', 'g.inhoud', 'g.afspraken', 'l.voornaam', 'l.achternaam')
+            ->selectRaw('? AS onderwerp', ['Gespreksaanvraag'])
+            ->distinct()
             ->orderByRaw('CASE WHEN g.datum IS NULL THEN 1 ELSE 0 END')
             ->orderBy('g.datum')
             ->orderBy('g.idgesprek')
             ->get();
+    }
+
+    public function visibleConversationRequestIds(User $user): Builder
+    {
+        $requests = DB::table('gesprekken as g')->select('g.idgesprek');
+
+        if (! Schema::hasTable('gesprekken_has_lid')
+            || ! Schema::hasColumn('gesprekken_has_lid', 'gesprekken_idgesprek')
+            || ! Schema::hasColumn('gesprekken_has_lid', 'lid_idlid')
+            || ! Schema::hasTable('lid')
+            || ! Schema::hasColumn('lid', 'idlid')
+            || ! Schema::hasColumn('lid', 'rol_idrol')
+            || ! Schema::hasColumn('lid', 'status')
+            || ! Schema::hasTable('rol')
+            || ! Schema::hasColumn('rol', 'idrol')
+            || ! Schema::hasColumn('rol', 'naam')) {
+            return $requests->whereRaw('1 = 0');
+        }
+
+        return $requests
+            ->where('g.onderwerp', self::MEETING_REQUEST_TOPIC)
+            ->where(fn ($query) => $query->whereNull('g.afspraken')->orWhere('g.afspraken', '<>', 'rejected'))
+            ->whereExists(fn ($query) => $query->selectRaw('1')
+                ->from('gesprekken_has_lid as teacher_link')
+                ->whereColumn('teacher_link.gesprekken_idgesprek', 'g.idgesprek')
+                ->where('teacher_link.lid_idlid', $user->getKey()))
+            ->whereExists(fn ($query) => $query->selectRaw('1')
+                ->from('gesprekken_has_lid as student_link')
+                ->join('lid as request_student', 'request_student.idlid', '=', 'student_link.lid_idlid')
+                ->join('rol as request_student_role', 'request_student_role.idrol', '=', 'request_student.rol_idrol')
+                ->whereColumn('student_link.gesprekken_idgesprek', 'g.idgesprek')
+                ->whereRaw('LOWER(request_student_role.naam) = ?', ['student'])
+                ->whereRaw('LOWER(request_student.status) = ?', ['actief']));
     }
 
     /**

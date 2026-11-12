@@ -157,6 +157,7 @@ class StudentDashboardTest extends TestCase
 
         $this->actingAs(User::findOrFail(1))->get('/dashboard')
             ->assertOk()
+            ->assertSee('<div class="content-grid single-column">', false)
             ->assertSee('<details class="student-record-actions">', false)
             ->assertSee('Aanpassen of verwijderen');
 
