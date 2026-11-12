@@ -55,6 +55,13 @@ body.dashboard-navigation .topbar h1>span {display:inline}
 body.dashboard-navigation .topbar p {margin:7px 0 0;font-size:13px;color:#e4f0f9;line-height:1.6}
 body.dashboard-navigation .topbar-actions {display:flex;align-items:center;gap:18px;flex-shrink:0}
 body.dashboard-navigation .topbar-actions form {margin:0}
+body.dashboard-navigation .dashboard-role-switcher {position:relative;color:#fff;font:12px 'Instrument Sans',Arial,Helvetica,sans-serif}
+body.dashboard-navigation .dashboard-role-switcher summary {list-style:none;cursor:pointer;border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:9px 12px;background:rgba(255,255,255,.1)}
+body.dashboard-navigation .dashboard-role-switcher summary::-webkit-details-marker {display:none}
+body.dashboard-navigation .dashboard-role-switcher nav {position:absolute;z-index:20;top:calc(100% + 7px);right:0;min-width:190px;display:grid;padding:5px;border:1px solid #d5e6f0;border-radius:8px;background:#fff;box-shadow:0 8px 24px #092c4d26}
+body.dashboard-navigation .dashboard-role-switcher nav a {padding:10px;border-radius:5px;color:#183c63;text-decoration:none}
+body.dashboard-navigation .dashboard-role-switcher nav a:hover,
+body.dashboard-navigation .dashboard-role-switcher nav a[aria-current="page"] {background:#e7f2fb;color:#1664ac}
 body.dashboard-navigation .topbar .logout-button {border:0;border-radius:0;padding:0;background:none;color:white;font-size:12px;cursor:pointer}
 body.dashboard-navigation .topbar .notification-wrapper {position:relative}
 body.dashboard-navigation .topbar .notification {

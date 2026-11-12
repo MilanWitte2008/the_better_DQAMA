@@ -18,7 +18,8 @@ class ApplicationAdminController extends Controller
     // Alleen een ingelogde, actieve beheerder mag deze acties uitvoeren.
     private function authorizeAdmin(Request $request): void
     {
-        abort_unless($request->user()?->dashboardRoleKey() === 'beheerder' && strtolower((string) $request->user()->status) === 'actief', 403);
+        abort_unless($request->user()?->hasAnyRole(['admin', 'applicatiebeheerder', 'beheerder'])
+            && strtolower((string) $request->user()->status) === 'actief', 403);
     }
 
     // Haal de gegevens op die we op het dashboard willen tonen.

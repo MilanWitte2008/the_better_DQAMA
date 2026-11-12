@@ -16,7 +16,7 @@ class TeamManagerDashboardController extends Controller
         /** @var User $user */
         $user = $request->user();
         abort_unless(
-            $user->dashboardRoleKey() === 'teamleider'
+            $user->hasAnyRole(['teammanager', 'teamleider', 'manager'])
                 && strtolower((string) $user->status) === 'actief',
             403,
         );
@@ -200,7 +200,7 @@ class TeamManagerDashboardController extends Controller
         /** @var User $user */
         $user = $request->user();
         abort_unless(
-            $user->dashboardRoleKey() === 'teamleider'
+            $user->hasAnyRole(['teammanager', 'teamleider', 'manager'])
                 && strtolower((string) $user->status) === 'actief',
             403,
         );
@@ -235,7 +235,7 @@ class TeamManagerDashboardController extends Controller
         /** @var User $user */
         $user = $request->user();
         abort_unless(
-            $user->dashboardRoleKey() === 'teamleider'
+            $user->hasAnyRole(['teammanager', 'teamleider', 'manager'])
                 && strtolower((string) $user->status) === 'actief',
             403,
         );
@@ -260,7 +260,7 @@ class TeamManagerDashboardController extends Controller
         /** @var User $user */
         $user = $request->user();
         abort_unless(
-            $user->dashboardRoleKey() === 'teamleider'
+            $user->hasAnyRole(['teammanager', 'teamleider', 'manager'])
                 && strtolower((string) $user->status) === 'actief',
             403,
         );
@@ -411,7 +411,7 @@ class TeamManagerDashboardController extends Controller
         /** @var User $user */
         $user = $request->user();
         abort_unless(
-            $user->dashboardRoleKey() === 'teamleider'
+            $user->hasAnyRole(['teammanager', 'teamleider', 'manager'])
                 && strtolower((string) $user->status) === 'actief',
             403,
         );

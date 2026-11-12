@@ -118,6 +118,7 @@
                 </div>
                 <div class="topbar-actions">
                     @include('components.notification-button')
+                    @include('components.dashboard-role-switcher')
                     <span
                         class="avatar avatar-light">{{ strtoupper(substr(auth()->user()->voornaam ?? 'A', 0, 1) . substr(auth()->user()->achternaam ?? 'V', 0, 1)) }}</span>
                     <form method="POST" action="{{ url('/logout') }}">

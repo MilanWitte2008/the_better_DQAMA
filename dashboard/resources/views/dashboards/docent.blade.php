@@ -55,6 +55,7 @@
             </div>
             <div class="topbar-actions">
                 @include('components.notification-button')
+                @include('components.dashboard-role-switcher')
                 <span
                     class="avatar avatar-light">{{ mb_strtoupper(mb_substr($user->voornaam ?? '', 0, 1) . mb_substr($user->achternaam ?? '', 0, 1)) }}</span>
                 <form method="POST" action="{{ url('/logout') }}">@csrf<button class="logout-button"

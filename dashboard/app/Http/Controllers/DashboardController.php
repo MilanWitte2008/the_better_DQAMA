@@ -16,10 +16,12 @@ class DashboardController extends Controller
     {
         // Haal de ingelogde gebruiker en diens rol op.
         $user = $request->user()->load('rol');
-        $roleKey = $user->dashboardRoleKey();
+        $availableRoleKeys = $user->dashboardRoleKeys();
+        $roleKey = $request->query('dashboard_role', $user->dashboardRoleKey());
 
         // Stop als het account inactief is of geen bekende rol heeft.
-        abort_unless($roleKey && strtolower((string) $user->status) === 'actief', 403, 'Je account heeft geen geldige dashboardrol.');
+        abort_unless($roleKey && in_array($roleKey, $availableRoleKeys, true)
+            && strtolower((string) $user->status) === 'actief', 403, 'Je account heeft geen toegang tot deze dashboardrol.');
 
         // Vul ontbrekende koppelingen aan wanneer een student het dashboard opent.
         if ($roleKey === 'student'
@@ -57,6 +59,6 @@ class DashboardController extends Controller
         // Stuur de gebruiker en de rol naar de pagina.
         $coaches = $roleKey === 'student' ? $studentDashboard->coachesFor($user) : collect();
 
-        return view($view, compact('user', 'roleKey', 'coaches'));
+        return view($view, compact('user', 'roleKey', 'coaches', 'availableRoleKeys'));
     }
 }

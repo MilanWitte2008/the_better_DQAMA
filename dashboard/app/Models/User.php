@@ -60,37 +60,43 @@ class User extends Authenticatable
     {
         $assignedNames = Schema::hasTable('lid_rol')
             ? $this->rollen()->pluck('rol.naam')->map(fn ($roleName): string => strtolower((string) $roleName))->all()
-            : [strtolower((string) $this->rol?->naam)];
+            : [];
+        $primaryRoleName = strtolower((string) $this->rol?->naam);
+        if ($primaryRoleName !== '') {
+            $assignedNames[] = $primaryRoleName;
+        }
 
         return array_intersect(array_map('strtolower', $roleNames), $assignedNames) !== [];
+    }
+
+    /** @return array<int, string> Dashboarden die bij alle toegewezen rollen horen. */
+    public function dashboardRoleKeys(): array
+    {
+        $primaryRoleName = strtolower((string) $this->rol?->naam);
+        $roleNames = $primaryRoleName !== '' ? [$primaryRoleName] : [];
+
+        if (Schema::hasTable('lid_rol')) {
+            $roleNames = array_merge(
+                $roleNames,
+                $this->rollen()->pluck('rol.naam')->map(fn ($name): string => strtolower((string) $name))->all(),
+            );
+        }
+
+        $dashboardKeys = [];
+        foreach (array_unique($roleNames) as $roleName) {
+            $key = $this->dashboardForRole($roleName);
+            if ($key !== null && ! in_array($key, $dashboardKeys, true)) {
+                $dashboardKeys[] = $key;
+            }
+        }
+
+        return $dashboardKeys;
     }
 
     // Kies het dashboard dat bij de rol hoort. Een onbekende rol krijgt geen dashboard.
     public function dashboardRoleKey(): ?string
     {
-        $roleNames = Schema::hasTable('lid_rol')
-            ? $this->rollen()->pluck('rol.naam')->map(fn ($roleName): string => strtolower((string) $roleName))->all()
-            : [strtolower((string) $this->rol?->naam)];
-
-        $primaryRole = strtolower((string) $this->rol?->naam);
-        $dashboard = $this->dashboardForRole($primaryRole);
-        if ($dashboard !== null) {
-            return $dashboard;
-        }
-
-        foreach ([
-            'beheerder' => ['admin', 'applicatiebeheerder', 'beheerder'],
-            'teamleider' => ['teammanager', 'teamleider', 'manager'],
-            'coach' => ['coach'],
-            'docent' => ['docent'],
-            'student' => ['student'],
-        ] as $dashboard => $aliases) {
-            if (array_intersect($aliases, $roleNames) !== []) {
-                return $dashboard;
-            }
-        }
-
-        return null;
+        return $this->dashboardRoleKeys()[0] ?? null;
     }
 
     private function dashboardForRole(string $roleName): ?string
