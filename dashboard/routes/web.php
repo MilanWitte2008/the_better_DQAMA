@@ -42,6 +42,7 @@ Route::middleware('auth')->prefix('beheer')->name('beheer.')->group(function () 
     // GET opent het formulier. POST slaat een nieuwe gebruiker op.
     Route::get('/gebruikers/nieuw', [ApplicationAdminController::class, 'create'])->name('members.create');
     Route::post('/gebruikers', [ApplicationAdminController::class, 'store'])->name('members.store');
+    Route::post('/rollen', [ApplicationAdminController::class, 'createRole'])->name('roles.store');
     /**
      * Open het bewerkformulier voor de gebruiker die via route model binding wordt opgehaald.
      */

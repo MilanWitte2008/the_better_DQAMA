@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -339,15 +340,16 @@ class TeamManagerDashboardController extends Controller
 
         $activeCoaches = DB::table('groep_has_lid as membership')
             ->join('lid as member', 'member.idlid', '=', 'membership.idlid')
-            ->join('rol', 'rol.idrol', '=', 'member.rol_idrol')
             ->whereIn('membership.idgroep', $groupIds)
             ->where('member.status', 'actief')
-            ->whereRaw('LOWER(rol.naam) IN (?, ?)', ['docent', 'coach'])
+            ->select('member.idlid');
+        $this->whereMemberHasRole($activeCoaches, 'member', 'coach');
+        $activeCoachIds = $activeCoaches
             ->pluck('member.idlid')
             ->unique()
             ->values();
 
-        foreach ($activeCoaches as $memberId) {
+        foreach ($activeCoachIds as $memberId) {
             if (! DB::table('coach')->where('lid_idlid', $memberId)->exists()) {
                 DB::table('coach')->insert(['lid_idlid' => $memberId]);
             }
@@ -359,16 +361,15 @@ class TeamManagerDashboardController extends Controller
             ->join('rol as student_role', 'student_role.idrol', '=', 'student_member.rol_idrol')
             ->join('student', 'student.lid_idlid', '=', 'student_member.idlid')
             ->join('lid as coach_member', 'coach_member.idlid', '=', 'coach_membership.idlid')
-            ->join('rol as coach_role', 'coach_role.idrol', '=', 'coach_member.rol_idrol')
             ->join('coach', 'coach.lid_idlid', '=', 'coach_member.idlid')
             ->whereIn('student_membership.idgroep', $groupIds)
             ->where('student_member.status', 'actief')
             ->where('coach_member.status', 'actief')
             ->whereRaw('LOWER(student_role.naam) = ?', ['student'])
-            ->whereRaw('LOWER(coach_role.naam) IN (?, ?)', ['docent', 'coach'])
             ->select('student.idstudent as student_idstudent', 'coach.idcoach as coach_idcoach')
-            ->distinct()
-            ->get()
+            ->distinct();
+        $this->whereMemberHasRole($assignments, 'coach_member', 'coach');
+        $assignments = $assignments->get()
             ->map(fn ($assignment) => [
                 'student_idstudent' => $assignment->student_idstudent,
                 'coach_idcoach' => $assignment->coach_idcoach,
@@ -387,6 +388,22 @@ class TeamManagerDashboardController extends Controller
                 DB::table('student_coach')->insert($assignment);
             }
         }
+    }
+
+    private function whereMemberHasRole(Builder $query, string $memberAlias, string $roleName): void
+    {
+        $query->whereExists(function (Builder $roleQuery) use ($memberAlias, $roleName): void {
+            $roleQuery->selectRaw('1');
+            if (Schema::hasTable('lid_rol')) {
+                $roleQuery->from('lid_rol as role_assignment')
+                    ->join('rol as assigned_role', 'assigned_role.idrol', '=', 'role_assignment.rol_idrol')
+                    ->whereColumn('role_assignment.lid_idlid', $memberAlias.'.idlid');
+            } else {
+                $roleQuery->from('rol as assigned_role')
+                    ->whereColumn('assigned_role.idrol', $memberAlias.'.rol_idrol');
+            }
+            $roleQuery->whereRaw('LOWER(assigned_role.naam) = ?', [$roleName]);
+        });
     }
 
     public function destroyGroupMember(Request $request, int $group, int $member): RedirectResponse

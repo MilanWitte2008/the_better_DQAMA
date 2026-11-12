@@ -280,9 +280,15 @@
             <div class="admin-panel-heading">
                 <div>
                     <h2>Rollen & toegang</h2>
-                    <p>Rollen uit je bestaande omgeving. Wijs een rol toe via het gebruikersformulier.</p>
+                    <p>Voeg rollen toe en wijs ze toe via het gebruikersformulier. Nieuwe rollen zijn beschikbaar als extra rol.</p>
                 </div><span class="admin-count">{{ $roles->count() }} rollen</span>
             </div>
+            <form class="simple-form role-create-form" method="POST" action="{{ route('beheer.roles.store') }}">
+                @csrf
+                <label>Nieuwe rol<input name="naam" maxlength="50" value="{{ old('naam') }}" placeholder="Bijvoorbeeld: Mentor" required></label>
+                <label>Beschrijving (optioneel)<input name="beschrijving" maxlength="255" value="{{ old('beschrijving') }}" placeholder="Wat kan deze rol doen?"></label>
+                <button class="admin-button" type="submit">Rol toevoegen</button>
+            </form>
             <div class="admin-role-grid">
                 @forelse($roles as $role)
                     <article class="admin-role-card"><img class="role-icon"

@@ -585,8 +585,42 @@
                     </select>
                     <p class="muted-line">Er is geen actieve docent aan jouw account gekoppeld.</p>
                 @endif
-                <label for="meeting-request-date">Voorgestelde datum en tijd</label>
-                <input id="meeting-request-date" type="datetime-local" name="datum" required min="{{ now()->format('Y-m-d\TH:i') }}" value="{{ old('datum') }}">
+                @php
+                    $requestedMeetingDateTime = old('datum', '');
+                    $requestedMeetingDate = $requestedMeetingDateTime ? substr($requestedMeetingDateTime, 0, 10) : '';
+                    $requestedMeetingTime = $requestedMeetingDateTime ? substr($requestedMeetingDateTime, 11, 5) : '';
+                    [$requestedMeetingHour, $requestedMeetingMinute] = array_pad(explode(':', $requestedMeetingTime), 2, '');
+                @endphp
+                <label for="meeting-request-date">Voorgestelde datum</label>
+                <input id="meeting-request-date" type="date" lang="nl-NL" value="{{ $requestedMeetingDate }}" data-meeting-date required>
+                <label for="meeting-request-hour">Voorgestelde tijd (24-uursnotatie)</label>
+                <span class="meeting-time-selects">
+                    <select id="meeting-request-hour" aria-label="Uur" data-meeting-hour required>
+                        <option value="">Uur</option>
+                        @for($hour = 0; $hour < 24; $hour++)
+                            @php($hourValue = str_pad((string) $hour, 2, '0', STR_PAD_LEFT))
+                            <option value="{{ $hourValue }}" @selected($requestedMeetingHour === $hourValue)>{{ $hourValue }}</option>
+                        @endfor
+                    </select>
+                    <span aria-hidden="true">:</span>
+                    <select id="meeting-request-minute" aria-label="Minuut" data-meeting-minute required>
+                        <option value="">Minuut</option>
+                        @for($minute = 0; $minute < 60; $minute++)
+                            @php($minuteValue = str_pad((string) $minute, 2, '0', STR_PAD_LEFT))
+                            <option value="{{ $minuteValue }}" @selected($requestedMeetingMinute === $minuteValue)>{{ $minuteValue }}</option>
+                        @endfor
+                    </select>
+                </span>
+                <input type="hidden" name="datum" value="{{ $requestedMeetingDateTime }}" data-meeting-datetime>
+                <script>
+                    document.currentScript.closest('form').addEventListener('submit', (event) => {
+                        const form = event.currentTarget;
+                        const date = form.querySelector('[data-meeting-date]').value;
+                        const hour = form.querySelector('[data-meeting-hour]').value;
+                        const minute = form.querySelector('[data-meeting-minute]').value;
+                        form.querySelector('[data-meeting-datetime]').value = date && hour && minute ? `${date}T${hour}:${minute}` : '';
+                    });
+                </script>
                 <label for="meeting-request-message">Bericht aan de docent (optioneel)</label>
                 <textarea id="meeting-request-message" name="bericht" rows="3" maxlength="1000" placeholder="Waarover wil je praten?">{{ old('bericht') }}</textarea>
                 <button class="primary-button" type="submit" @disabled($coaches->isEmpty())>Aanvraag versturen</button>

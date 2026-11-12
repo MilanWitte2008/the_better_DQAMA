@@ -1,7 +1,9 @@
 /* Gedeelde navigatiestijl. Alleen zijbalk en bovenbalk worden aangepast. */
 body.dashboard-navigation .sidebar {
     width:258px; padding:24px 14px 18px; background:#06283d; color:#f3f8ff;
-    display:flex; flex-direction:column; flex-shrink:0; font-family:'Instrument Sans',Arial,Helvetica,sans-serif;
+    display:flex; flex-direction:column; flex-shrink:0; align-self:flex-start;
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+    font-family:'Instrument Sans',Arial,Helvetica,sans-serif;
 }
 body.dashboard-navigation .sidebar .brand {
     display:flex; align-items:center; flex-wrap:nowrap; gap:12px; padding:4px 8px 24px;
@@ -104,18 +106,19 @@ body.dashboard-navigation .topbar .notification-list time {color:#7792a5}
     body.dashboard-navigation .topbar .notification,
     body.dashboard-navigation .topbar .notification-panel {animation:none;transition:none}
 }
-body.docent-page.dashboard-navigation .workspace {margin-left:258px}
+body.docent-page.dashboard-navigation {display:grid;grid-template-columns:258px minmax(0,1fr);align-items:start}
+body.docent-page.dashboard-navigation .workspace {min-width:0;margin-left:0}
 body.docent-page.dashboard-navigation .sidebar {overflow-y:auto}
 body.docent-page.dashboard-navigation .sidebar nav a>span {font-size:13px}
 @media(max-width:1100px) {
     body.dashboard-navigation .sidebar{width:220px}
-    body.docent-page.dashboard-navigation .workspace{margin-left:220px}
+    body.docent-page.dashboard-navigation {grid-template-columns:220px minmax(0,1fr)}
     body.dashboard-navigation .topbar{padding:20px 24px;flex-wrap:wrap}
 }
 @media(max-width:720px) {
     body.dashboard-navigation .sidebar{width:64px;padding:18px 8px}
+    body.docent-page.dashboard-navigation {grid-template-columns:64px minmax(0,1fr)}
     body.docent-page.dashboard-navigation .sidebar{position:fixed;inset:0 auto 0 0}
-    body.docent-page.dashboard-navigation .workspace{margin-left:64px}
     body.dashboard-navigation .sidebar .brand{padding:0 4px 18px;gap:0}
     body.dashboard-navigation .sidebar .brand>span:last-child,
     body.dashboard-navigation .sidebar .profile-chip>span:last-child{display:none}

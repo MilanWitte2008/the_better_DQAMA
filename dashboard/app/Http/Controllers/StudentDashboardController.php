@@ -119,15 +119,15 @@ class StudentDashboardController extends Controller
         $coach = User::query()
             ->whereKey($selectedCoach->docent_id)
             ->whereRaw('LOWER(status) = ?', ['actief'])
-            ->whereHas('rol', fn ($query) => $query->whereRaw('LOWER(naam) IN (?, ?)', ['coach', 'docent']))
             ->firstOrFail();
+        abort_unless($coach->hasAnyRole(['coach']), 404);
 
         DB::transaction(function () use ($request, $data, $coach): void {
             $conversation = [
                 'onderwerp' => \App\DocentDashboard::MEETING_REQUEST_TOPIC,
                 'inhoud' => $data['bericht'] ?? null,
                 'afspraken' => 'pending',
-                'datum' => \Illuminate\Support\Carbon::createFromFormat('Y-m-d\TH:i', $data['datum'])->format('Y-m-d H:i:s'),
+                'datum' => \Illuminate\Support\Carbon::createFromFormat('Y-m-d\TH:i', $data['datum'], 'Europe/Amsterdam')->format('Y-m-d H:i:s'),
             ];
             if (Schema::hasColumn('gesprekken', 'student_idstudent')) {
                 $studentId = Schema::hasTable('student') && Schema::hasColumn('student', 'idstudent')
@@ -191,7 +191,7 @@ class StudentDashboardController extends Controller
     private function authorizeStudent(Request $request): void
     {
         abort_unless(
-            $request->user()?->dashboardRoleKey() === 'student'
+            $request->user()?->hasAnyRole(['student'])
                 && strtolower((string) $request->user()->status) === 'actief',
             403,
         );

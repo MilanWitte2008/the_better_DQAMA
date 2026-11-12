@@ -3,6 +3,7 @@
 namespace App;
 
 use App\Models\User;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -43,11 +44,10 @@ class StudentDashboard
             $assignments = DB::table('student_coach as assignment')
                 ->join('coach', 'coach.idcoach', '=', 'assignment.coach_idcoach')
                 ->join('lid as coach_member', 'coach_member.idlid', '=', 'coach.lid_idlid')
-                ->join('rol', 'rol.idrol', '=', 'coach_member.rol_idrol')
                 ->where('assignment.student_idstudent', $studentId)
                 ->whereRaw('LOWER(assignment.status) = ?', ['actief'])
-                ->whereRaw('LOWER(rol.naam) IN (?, ?)', ['coach', 'docent'])
                 ->whereRaw('LOWER(coach_member.status) = ?', ['actief']);
+            $this->whereMemberHasRole($assignments, 'coach_member', 'coach');
 
             if (Schema::hasColumn('student_coach', 'startdatum')) {
                 $assignments->where(fn ($query) => $query->whereNull('assignment.startdatum')->orWhereDate('assignment.startdatum', '<=', today()));
@@ -70,10 +70,9 @@ class StudentDashboard
             $groupCoaches = DB::table('groep_has_lid as student_membership')
                 ->join('groep_has_lid as docent_membership', 'docent_membership.idgroep', '=', 'student_membership.idgroep')
                 ->join('lid as docent', 'docent.idlid', '=', 'docent_membership.idlid')
-                ->join('rol', 'rol.idrol', '=', 'docent.rol_idrol')
                 ->where('student_membership.idlid', $student->getKey())
-                ->whereRaw('LOWER(rol.naam) IN (?, ?)', ['coach', 'docent'])
                 ->whereRaw('LOWER(docent.status) = ?', ['actief']);
+            $this->whereMemberHasRole($groupCoaches, 'docent', 'coach');
 
             $coaches = $coaches->concat(
                 $groupCoaches
@@ -86,5 +85,21 @@ class StudentDashboard
         }
 
         return $coaches;
+    }
+
+    private function whereMemberHasRole(Builder $query, string $memberAlias, string $roleName): void
+    {
+        $query->whereExists(function (Builder $roleQuery) use ($memberAlias, $roleName): void {
+            $roleQuery->selectRaw('1');
+            if (Schema::hasTable('lid_rol')) {
+                $roleQuery->from('lid_rol as role_assignment')
+                    ->join('rol as assigned_role', 'assigned_role.idrol', '=', 'role_assignment.rol_idrol')
+                    ->whereColumn('role_assignment.lid_idlid', $memberAlias.'.idlid');
+            } else {
+                $roleQuery->from('rol as assigned_role')
+                    ->whereColumn('assigned_role.idrol', $memberAlias.'.rol_idrol');
+            }
+            $roleQuery->whereRaw('LOWER(assigned_role.naam) = ?', [$roleName]);
+        });
     }
 }
