@@ -4,6 +4,8 @@
 .detail .student-facts dt {margin:0 0 6px;font-size:12px;font-weight:500;color:#718aa4;letter-spacing:0;}
 .detail .student-facts dd {margin:0;font-size:14px;font-weight:600;line-height:1.6;color:#183c63;overflow-wrap:anywhere;}
 .detail .dossier-section-title {font-size:16px;font-weight:600;letter-spacing:0;margin:0 0 16px;}
+.detail .dossier-outcomes {max-height:min(55vh,360px);overflow-y:auto;overscroll-behavior:contain;padding-right:8px;scrollbar-gutter:stable;}
+.detail .dossier-outcomes:focus-visible {outline:3px solid #e7af48;outline-offset:3px;border-radius:4px;}
 .detail .dossier-outcome {display:grid;grid-template-columns:minmax(0,1fr) 100px 160px;align-items:start;gap:20px;padding:20px 0;border-top:1px solid #d5e6f0;}
 .detail .dossier-outcome-main {min-width:0;}
 .detail .dossier-outcome-main small {font-size:11px;overflow-wrap:anywhere;}

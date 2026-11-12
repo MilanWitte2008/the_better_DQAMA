@@ -327,13 +327,16 @@ class DocentDashboardTest extends TestCase
             ->assertDontSee('Niet gekoppelde notitie')
             ->assertDontSee('Niet gekoppeld oud gesprek')
             ->assertSee('+ Gesprek plannen')
-            ->assertSee('+ Notitie toevoegen');
+            ->assertSee('+ Notitie toevoegen')
+            ->assertSee('1/2 behaald')
+            ->assertSee('aria-label="Bekijk Ada Voorbeeld"', false);
 
         $this->actingAs(User::findOrFail(1))->get('/dashboard?student=11')
             ->assertOk()
             ->assertSee('STUDENTDOSSIER')
             ->assertSee('Ada Voorbeeld')
             ->assertSee('ICT 2A')
+            ->assertSee('1/2 leeruitkomsten behaald')
             ->assertSee('11@example.test')
             ->assertSee('Samenwerken')
             ->assertSee('Samenwerken met de klas.')
@@ -604,6 +607,8 @@ class DocentDashboardTest extends TestCase
         $xpath = new \DOMXPath($document);
         $this->assertSame(0, $xpath->query('//*[@id="student-detail"]//form | //*[@id="student-detail"]//input | //*[@id="student-detail"]//select | //*[@id="student-detail"]//textarea')->length);
         $this->assertSame(4, $xpath->query('//*[@id="student-detail"]//dl/div')->length);
+        $this->assertSame(1, $xpath->query('//*[@id="student-detail"]//div[@class="dossier-outcomes"][@role="region"][@tabindex="0"]')->length);
+        $response->assertSee('max-height:min(55vh,360px)', false)->assertSee('overflow-y:auto', false);
         $response->assertDontSee('Nieuwe leeruitkomst maken')->assertDontSee('Voortgang bewerken');
     }
 

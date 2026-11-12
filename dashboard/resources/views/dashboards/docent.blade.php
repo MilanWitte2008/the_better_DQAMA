@@ -199,9 +199,38 @@
                                             </div>
                                         </td>
                                         <td>{{ $groupStudent->groepnaam }}</td>
-                                        <td><span class="muted">Nog geen voortgang beschikbaar</span></td>
-                                        <td><span class="muted">Nog geen updates</span></td>
-                                        <td></td>
+                                        <td>
+                                            @if ($legacyMode)
+                                                @if ($groupStudent->progress !== null)
+                                                    <div class="progress-label">
+                                                        <span>{{ $groupStudent->achieved }}/{{ $groupStudent->total }} behaald</span>
+                                                        <b>{{ $groupStudent->progress }}%</b>
+                                                    </div>
+                                                    <progress value="{{ $groupStudent->progress }}" max="100"
+                                                        aria-label="Behaalde leeruitkomsten van {{ $groupStudent->voornaam }}">{{ $groupStudent->progress }}%</progress>
+                                                @else
+                                                    <span class="muted">Nog geen leeruitkomsten</span>
+                                                @endif
+                                            @else
+                                                <span class="muted">Nog geen voortgang beschikbaar</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($legacyMode)
+                                                @if ($groupStudent->lastUpdate)
+                                                    <small>{{ $dateLabel($groupStudent->lastUpdate) }}</small>
+                                                @endif
+                                            @else
+                                                <span class="muted">Nog geen updates</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($legacyMode)
+                                                <a class="detail-link"
+                                                    href="{{ route('dashboard', array_merge(request()->only(['q', 'klas', 'filter']), ['student' => $groupStudent->idlid])) }}#student-detail"
+                                                    aria-label="Bekijk {{ $groupStudent->voornaam }} {{ $groupStudent->achternaam }}">Bekijk ↗</a>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @endforeach
                                 @if ($filtered->isEmpty() && $visibleGroupStudents->isEmpty())
@@ -260,6 +289,16 @@
                 </section>
             </div>
             @if ($selected)
+                @php
+                    $selectedOutcomes = $outcomes->where('student_idstudent', $selected->idstudent);
+                    $selectedOutcomeCount = $selectedOutcomes->count();
+                    $selectedAchievedCount = $selectedOutcomes
+                        ->filter(fn ($outcome) => strtolower((string) $outcome->status) === 'behaald')
+                        ->count();
+                    $selectedProgress = $selectedOutcomeCount > 0
+                        ? (int) round($selectedAchievedCount / $selectedOutcomeCount * 100)
+                        : 0;
+                @endphp
                 <section class="card detail" id="student-detail">
                     <div class="section-heading">
                         <div>
@@ -283,9 +322,22 @@
                                 <div><dt>E-mailadres</dt><dd>{{ $selected->email }}</dd></div>
                             @endif
                     </dl>
+                    <h3 class="dossier-section-title">Ontwikkeling</h3>
+                    @if ($selectedOutcomeCount > 0)
+                            <div class="progress-label">
+                                <span>{{ $selectedAchievedCount }}/{{ $selectedOutcomeCount }} leeruitkomsten behaald</span>
+                                <b>{{ $selectedProgress }}%</b>
+                            </div>
+                            <progress value="{{ $selectedProgress }}" max="100"
+                                aria-label="Ontwikkeling van {{ $selected->voornaam }}">{{ $selectedProgress }}%</progress>
+                    @else
+                            <p class="muted">Er zijn nog geen leeruitkomsten aan deze leerling gekoppeld.</p>
+                    @endif
                     <h3 class="dossier-section-title">Leeruitkomsten</h3>
-                    <div class="dossier-outcomes">
-                        @forelse($outcomes->where('student_idstudent', $selected->idstudent) as $outcome)
+                    <div class="dossier-outcomes" role="region"
+                        aria-label="Leeruitkomsten van {{ $selected->voornaam }} {{ $selected->achternaam }}"
+                        tabindex="0">
+                            @forelse($selectedOutcomes as $outcome)
                             <article class="dossier-outcome">
                                 <div class="dossier-outcome-main">
                                         @if ($outcome->fase_naam)<small>{{ $outcome->fase_naam }}</small>@endif

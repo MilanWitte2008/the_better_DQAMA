@@ -292,6 +292,21 @@ class DocentDashboard
                     ->select($outcomeColumns)
                     ->get();
             }
+            foreach ($teacherGroupStudents as $groupStudent) {
+                $studentOutcomes = $outcomes->where('student_idstudent', $groupStudent->idlid);
+                $groupStudent->total = $studentOutcomes->count();
+                $groupStudent->achieved = $studentOutcomes
+                    ->filter(fn ($outcome) => strtolower((string) $outcome->status) === 'behaald')
+                    ->count();
+                $groupStudent->progress = $groupStudent->total > 0
+                    ? (int) round($groupStudent->achieved / $groupStudent->total * 100)
+                    : null;
+                $groupStudent->lastUpdate = $studentOutcomes
+                    ->pluck('laatste_update')
+                    ->filter()
+                    ->sortDesc()
+                    ->first();
+            }
             $total = $outcomes->count();
             $achieved = $outcomes->filter(fn ($outcome) => strtolower((string) $outcome->status) === 'behaald')->count();
             $requestedStudent = $request->query('student');
@@ -322,6 +337,7 @@ class DocentDashboard
                 'teacherGroups' => $teacherGroups,
                 'teacherGroupStudents' => $teacherGroupStudents,
                 'visibleGroupStudents' => $visibleGroupStudents,
+                'legacyMode' => true,
                 'availableOutcomes' => collect(),
                 'classes' => $teacherGroups->pluck('groepnaam')->filter()->values(),
                 'attentionCount' => 0,
@@ -420,6 +436,7 @@ class DocentDashboard
             'attentionCount' => $students->where('attention', true)->count(),
             'coachLinked' => $coachIds->isNotEmpty(),
             'studentCount' => $studentCount,
+            'legacyMode' => false,
             'meetingRequests' => $this->conversationRequests($user),
             'notesCount' => (clone $notes)->count(),
             'notes' => $notes->limit(8)->get(),
