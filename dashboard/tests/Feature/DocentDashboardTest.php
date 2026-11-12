@@ -590,7 +590,7 @@ class DocentDashboardTest extends TestCase
         $this->signInAsAdmin();
         DB::table('rol')->where('idrol', 1)->update(['naam' => 'Coach']);
         DB::table('coach')->where('lid_idlid', 1)->delete();
-        $this->get('/beheer/gebruikers/1/bewerken')->assertOk()->assertSee('Docent')->assertDontSee('>Coach<', false);
+        $this->get('/beheer/gebruikers/1/bewerken')->assertOk()->assertSee('Coach')->assertDontSee('Docent (Coach)');
         $input = ['voornaam' => 'Docent', 'achternaam' => 'Voorbeeld', 'email' => '1@example.test', 'rol_idrol' => 1, 'status' => 'actief'];
         $this->put('/beheer/gebruikers/1', $input)->assertRedirect();
         $profileId = DB::table('coach')->where('lid_idlid', 1)->value('idcoach');
@@ -602,7 +602,7 @@ class DocentDashboardTest extends TestCase
         foreach (['Coach', 'Docent'] as $name) {
             $role = new Role;
             $role->naam = $name;
-            $this->assertSame('Docent', $role->displayName());
+            $this->assertSame($name, $role->displayName());
         }
     }
 

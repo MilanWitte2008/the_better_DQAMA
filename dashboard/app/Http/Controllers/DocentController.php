@@ -14,6 +14,14 @@ use Illuminate\Validation\Rule;
 
 class DocentController extends Controller
 {
+    private function requireCoach(Request $request): void
+    {
+        abort_unless(
+            $request->user()?->hasAnyRole(['coach']) && strtolower((string) $request->user()->status) === 'actief',
+            403,
+        );
+    }
+
     /** Elke schrijfactie controleert de actuele begeleiding opnieuw op de server. */
     private function student(Request $request, int $student): void
     {
@@ -92,6 +100,7 @@ class DocentController extends Controller
     /** Controleer het record opnieuw binnen de actuele leerlingkoppelingen. */
     private function note(Request $request, int $note): Builder
     {
+        $this->requireCoach($request);
         $ids = app(DocentDashboard::class)->studentIds($request->user());
         $query = DB::table('begeleidingsnotitie')->where('id_notitie', $note);
         if (Schema::hasColumn('begeleidingsnotitie', 'idstudent')
@@ -110,6 +119,7 @@ class DocentController extends Controller
 
     public function storeNote(Request $request): RedirectResponse
     {
+        $this->requireCoach($request);
         $data = $request->validate(['idstudent' => ['required', 'integer'], 'inhoud' => ['required', 'string', 'max:10000'], 'type' => ['required', Rule::in(['Notitie', 'Voortgang', 'Afspraak'])]]);
         $this->student($request, (int) $data['idstudent']);
         if (Schema::hasColumn('begeleidingsnotitie', 'idstudent')
@@ -148,6 +158,7 @@ class DocentController extends Controller
 
     private function meeting(Request $request, int $meeting): Builder
     {
+        $this->requireCoach($request);
         $query = DB::table('gesprekken')->where('idgesprek', $meeting);
         if (Schema::hasColumn('gesprekken', 'student_idstudent')) {
             $query->whereIn('student_idstudent', app(DocentDashboard::class)->studentIds($request->user()));
@@ -178,6 +189,7 @@ class DocentController extends Controller
 
     private function meetingData(Request $request): array
     {
+        $this->requireCoach($request);
         $data = $request->validate([
             'onderwerp' => ['required', 'string', 'max:255'],
             'datum' => ['required', 'date_format:Y-m-d\TH:i,Y-m-d\TH:i:s'],
@@ -247,7 +259,7 @@ class DocentController extends Controller
     private function updateMeetingRequestStatus(Request $request, int $aanvraag, string $status): RedirectResponse
     {
         abort_unless(
-            $request->user()?->dashboardRoleKey() === 'docent'
+            $request->user()?->hasAnyRole(['coach'])
                 && strtolower((string) $request->user()->status) === 'actief',
             403,
         );

@@ -28,6 +28,7 @@
         $roleLabels = [
             'student' => 'Student · ICT',
             'docent' => 'Docent',
+            'coach' => 'Coach',
             'beheerder' => 'Applicatiebeheerder',
             'teamleider' => 'Teamleider',
         ];
@@ -46,6 +47,13 @@
                 ['⌂', 'Dashboard', 'all'],
                 ['♙', 'Studenten', 'studenten'],
                 ['☷', 'Coachgesprekken', 'gesprekken'],
+                ['▤', 'Notities', 'notities'],
+                ['▥', 'Rapportages', 'rapportages'],
+            ],
+            'coach' => [
+                ['⌂', 'Dashboard', 'all'],
+                ['♙', 'Studenten', 'studenten'],
+                ['◷', 'Coachgesprekken', 'gesprekken'],
                 ['▤', 'Notities', 'notities'],
                 ['▥', 'Rapportages', 'rapportages'],
             ],

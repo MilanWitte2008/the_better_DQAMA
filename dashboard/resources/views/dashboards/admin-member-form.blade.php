@@ -4,6 +4,11 @@
 @section('welcome-title', 'Gebruikersbeheer')
 @section('welcome-subtitle', 'Geef ieder account de juiste toegang tot het platform.')
 @section('content')
+@php
+    $primaryRoleId = old('rol_idrol', $member->rol_idrol);
+    $additionalRoleIds = old('rol_ids', array_values(array_diff($selectedRoleIds, [(int) $primaryRoleId])));
+    $additionalRoleIds = is_array($additionalRoleIds) ? array_map('intval', $additionalRoleIds) : [];
+@endphp
 <div class="admin-workspace admin-form-page">
     <a class="admin-link" href="{{ route('dashboard') }}">← Terug naar het overzicht</a>
     @if(session('success'))
@@ -52,8 +57,52 @@
                         value="{{ old($field, $member->$field) }}"
                         maxlength="{{ $field === 'email' ? 100 : 50 }}" required @if($errors->has($field)) aria-invalid="true" @endif></label>
                 @endforeach
-                {{-- Kies een rol uit de database. De huidige keuze blijft geselecteerd. --}}
-                <label>Rol *<select name="rol_idrol" required><option value="">Selecteer een rol</option>@foreach($roles as $role)<option value="{{ $role->idrol }}" @selected(old('rol_idrol', $member->rol_idrol) == $role->idrol)>{{ $role->displayName() }}</option>@endforeach</select></label>
+                {{-- Kies de primaire rol voor het dashboard. --}}
+                <label>Hoofdrol *<select name="rol_idrol" data-primary-role required><option value="">Selecteer een rol</option>@foreach($primaryRoles as $role)<option value="{{ $role->idrol }}" @selected($primaryRoleId == $role->idrol)>{{ $role->assignmentName() }}</option>@endforeach</select></label>
+                @if($supportsMultipleRoles)
+                    <details class="role-picker" data-role-picker @if(!$primaryRoleId) hidden @endif>
+                        <summary>{{ count($additionalRoleIds) ? count($additionalRoleIds).' extra rollen geselecteerd' : 'Extra rollen selecteren' }}</summary>
+                        <div class="role-picker-options">
+                            @foreach($roles as $role)
+                                <label class="role-picker-option {{ in_array((int) $role->idrol, $additionalRoleIds, true) ? 'selected' : '' }}"><input type="checkbox" name="rol_ids[]" value="{{ $role->idrol }}" @checked(in_array((int) $role->idrol, $additionalRoleIds, true))>{{ $role->assignmentName() }}</label>
+                            @endforeach
+                        </div>
+                    </details>
+                    <script>
+                        document.querySelectorAll('.role-picker').forEach((picker) => {
+                            const summary = picker.querySelector('summary');
+                            const defaultLabel = 'Extra rollen selecteren';
+                            const form = picker.closest('form');
+                            const primaryRole = form.querySelector('[data-primary-role]');
+                            const updatePicker = () => {
+                                picker.hidden = !primaryRole.value;
+                                picker.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+                                    const isPrimary = checkbox.value === primaryRole.value;
+                                    checkbox.disabled = isPrimary;
+                                    if (isPrimary) checkbox.checked = false;
+                                    const option = checkbox.closest('.role-picker-option');
+                                    option.hidden = isPrimary;
+                                    option.classList.toggle('selected', checkbox.checked);
+                                });
+                                const selectedCount = picker.querySelectorAll('input[type="checkbox"]:checked').length;
+                                summary.textContent = selectedCount
+                                    ? `${selectedCount} extra rollen geselecteerd`
+                                    : defaultLabel;
+                            };
+                            primaryRole.addEventListener('change', updatePicker);
+                            picker.addEventListener('change', () => {
+                                picker.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+                                    checkbox.closest('.role-picker-option').classList.toggle('selected', checkbox.checked);
+                                });
+                                const selectedCount = picker.querySelectorAll('input[type="checkbox"]:checked').length;
+                                summary.textContent = selectedCount
+                                    ? `${selectedCount} extra rollen geselecteerd`
+                                    : defaultLabel;
+                            });
+                            updatePicker();
+                        });
+                    </script>
+                @endif
                 {{-- Kies of het account actief of inactief is. --}}
                 <label>Status *<select name="status"><option value="actief" @selected(old('status', $member->status ?? 'actief') === 'actief')>Actief</option><option value="inactief" @selected(old('status', $member->status) === 'inactief')>Inactief</option></select></label>
             </div>
@@ -97,7 +146,7 @@
             </div>
         </form>
     </section>
-    @if($member->exists && $member->dashboardRoleKey() === 'student')
+    @if($member->exists && $member->hasAnyRole(['student']))
         <section class="panel" style="margin-top:24px">
             <h2>Fases beheren</h2>
             <p>Koppel een bestaande fase of maak een nieuwe fase voor deze student. Voortgang wordt berekend uit behaalde leeruitkomsten.</p>

@@ -119,8 +119,8 @@ class StudentDashboardController extends Controller
         $coach = User::query()
             ->whereKey($selectedCoach->docent_id)
             ->whereRaw('LOWER(status) = ?', ['actief'])
-            ->whereHas('rol', fn ($query) => $query->whereRaw('LOWER(naam) IN (?, ?)', ['coach', 'docent']))
             ->firstOrFail();
+        abort_unless($coach->hasAnyRole(['coach']), 404);
 
         DB::transaction(function () use ($request, $data, $coach): void {
             $conversation = [
@@ -191,7 +191,7 @@ class StudentDashboardController extends Controller
     private function authorizeStudent(Request $request): void
     {
         abort_unless(
-            $request->user()?->dashboardRoleKey() === 'student'
+            $request->user()?->hasAnyRole(['student'])
                 && strtolower((string) $request->user()->status) === 'actief',
             403,
         );

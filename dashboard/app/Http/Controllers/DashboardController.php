@@ -51,7 +51,7 @@ class DashboardController extends Controller
         // Kies voor elke andere rol de juiste pagina.
         $view = match ($roleKey) {
             'student' => 'dashboards.student',
-            'docent' => 'dashboards.docent',
+            'docent', 'coach' => 'dashboards.docent',
         };
 
         // Stuur de gebruiker en de rol naar de pagina.

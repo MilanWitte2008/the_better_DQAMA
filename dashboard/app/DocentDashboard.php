@@ -15,7 +15,11 @@ class DocentDashboard
 
     public function coachIds(User $user): Collection
     {
-        abort_unless($user->dashboardRoleKey() === 'docent' && strtolower((string) $user->status) === 'actief', 403);
+        abort_unless($user->hasAnyRole(['docent', 'coach']) && strtolower((string) $user->status) === 'actief', 403);
+
+        if (! $user->hasAnyRole(['coach'])) {
+            return collect();
+        }
 
         return Schema::hasTable('coach')
             ? DB::table('coach')->where('lid_idlid', $user->getKey())->pluck('idcoach')
@@ -251,7 +255,8 @@ class DocentDashboard
                 'availableOutcomes' => collect(),
                 'classes' => $teacherGroups->pluck('groepnaam')->filter()->values(),
                 'attentionCount' => 0,
-                'coachLinked' => $coachIds->isNotEmpty() || $groupIds->isNotEmpty(),
+                'coachLinked' => $user->hasAnyRole(['coach']) && $coachIds->isNotEmpty(),
+                'hasCoachRole' => $user->hasAnyRole(['coach']),
                 'meetingRequests' => $this->conversationRequests($user),
                 'notesCount' => (clone $notes)->count(),
                 'notes' => $notes->limit(8)->get(),
@@ -331,7 +336,8 @@ class DocentDashboard
             'availableOutcomes' => $selected ? DB::table('leeruitkomsten')->whereNotIn('leeruitkomsten_id', DB::table('student_leeruitkomsten')->where('student_idstudent', $selected->idstudent)->select('leeruitkomsten_leeruitkomsten_id'))->orderBy('code')->get(['leeruitkomsten_id', 'code', 'titel']) : collect(),
             'classes' => $classes,
             'attentionCount' => $students->where('attention', true)->count(),
-            'coachLinked' => $coachIds->isNotEmpty(),
+            'coachLinked' => $user->hasAnyRole(['coach']) && $coachIds->isNotEmpty(),
+            'hasCoachRole' => $user->hasAnyRole(['coach']),
             'studentCount' => $studentCount,
             'meetingRequests' => $this->conversationRequests($user),
             'notesCount' => (clone $notes)->count(),

@@ -108,7 +108,8 @@ class StudentDashboardTest extends TestCase
 
         DB::table('rol')->insert([
             ['idrol' => 1, 'naam' => 'Student'],
-            ['idrol' => 2, 'naam' => 'Docent'],
+            ['idrol' => 2, 'naam' => 'Coach'],
+            ['idrol' => 3, 'naam' => 'Docent'],
         ]);
         DB::table('lid')->insert([
             ['idlid' => 1, 'voornaam' => 'Sam', 'achternaam' => 'Student', 'email' => 'sam@example.test', 'wachtwoord' => 'secret', 'status' => 'actief', 'rol_idrol' => 1],
@@ -116,7 +117,7 @@ class StudentDashboardTest extends TestCase
             ['idlid' => 3, 'voornaam' => 'Alex', 'achternaam' => 'Anders', 'email' => 'alex@example.test', 'wachtwoord' => 'secret', 'status' => 'actief', 'rol_idrol' => 2],
             ['idlid' => 4, 'voornaam' => 'Noor', 'achternaam' => 'Student', 'email' => 'noor@example.test', 'wachtwoord' => 'secret', 'status' => 'actief', 'rol_idrol' => 1],
             ['idlid' => 5, 'voornaam' => 'Rae', 'achternaam' => 'Coach', 'email' => 'rae@example.test', 'wachtwoord' => 'secret', 'status' => 'actief', 'rol_idrol' => 2],
-            ['idlid' => 6, 'voornaam' => 'Jo', 'achternaam' => 'Docent', 'email' => 'jo@example.test', 'wachtwoord' => 'secret', 'status' => 'actief', 'rol_idrol' => 2],
+            ['idlid' => 6, 'voornaam' => 'Jo', 'achternaam' => 'Docent', 'email' => 'jo@example.test', 'wachtwoord' => 'secret', 'status' => 'actief', 'rol_idrol' => 3],
         ]);
         DB::table('coach')->insert([
             ['idcoach' => 1, 'lid_idlid' => 2],
@@ -135,7 +136,7 @@ class StudentDashboardTest extends TestCase
         DB::table('groep')->insert(['idgroep' => 1, 'groepnaam' => 'ICT 2A', 'status' => null]);
         DB::table('groep_has_lid')->insert([
             ['idgroep' => 1, 'idlid' => 1],
-            ['idgroep' => 1, 'idlid' => 6],
+            ['idgroep' => 1, 'idlid' => 2],
         ]);
 
         DB::connection()->getPdo()->sqliteCreateFunction(
@@ -211,12 +212,12 @@ class StudentDashboardTest extends TestCase
 
         $this->actingAs(User::findOrFail(1))->get('/dashboard')
             ->assertOk()
-            ->assertSee('Jo Docent')
-            ->assertDontSee('Kim Coach')
+            ->assertSee('Kim Coach')
+            ->assertDontSee('Jo Docent')
             ->assertDontSee('Rae Coach');
 
         $this->post('/dashboard/gesprekaanvraag', [
-            'docent_id' => 6,
+            'docent_id' => 2,
             'datum' => now()->addDay()->format('Y-m-d\TH:i'),
             'bericht' => 'Gesprek via mijn klas.',
         ])->assertRedirect('/dashboard#gesprekken');
@@ -229,8 +230,8 @@ class StudentDashboardTest extends TestCase
         ]);
         $requestId = DB::table('gesprekken')->where('inhoud', 'Gesprek via mijn klas.')->value('idgesprek');
         $this->assertDatabaseHas('gesprekken_has_lid', ['gesprekken_idgesprek' => $requestId, 'lid_idlid' => 1]);
-        $this->assertDatabaseHas('gesprekken_has_lid', ['gesprekken_idgesprek' => $requestId, 'lid_idlid' => 6]);
-        $this->assertDatabaseHas('notifications', ['notifiable_id' => 6]);
+        $this->assertDatabaseHas('gesprekken_has_lid', ['gesprekken_idgesprek' => $requestId, 'lid_idlid' => 2]);
+        $this->assertDatabaseHas('notifications', ['notifiable_id' => 2]);
     }
 
     public function test_group_teachers_are_available_from_the_all_members_group(): void
@@ -242,17 +243,18 @@ class StudentDashboardTest extends TestCase
 
         $this->actingAs(User::findOrFail(1))->get('/dashboard')
             ->assertOk()
-            ->assertSee('Jo Docent');
+            ->assertSee('Kim Coach')
+            ->assertDontSee('Jo Docent');
 
         $this->post('/dashboard/gesprekaanvraag', [
-            'docent_id' => 6,
+            'docent_id' => 2,
             'datum' => now()->addDay()->format('Y-m-d\TH:i'),
             'bericht' => 'Gesprek via de groep Alle leden.',
         ])->assertRedirect('/dashboard#gesprekken');
 
-        $this->assertDatabaseHas('notifications', ['notifiable_id' => 6]);
+        $this->assertDatabaseHas('notifications', ['notifiable_id' => 2]);
         $requestId = DB::table('gesprekken')->where('inhoud', 'Gesprek via de groep Alle leden.')->value('idgesprek');
-        $this->assertDatabaseHas('gesprekken_has_lid', ['gesprekken_idgesprek' => $requestId, 'lid_idlid' => 6]);
+        $this->assertDatabaseHas('gesprekken_has_lid', ['gesprekken_idgesprek' => $requestId, 'lid_idlid' => 2]);
     }
 
     public function test_student_meeting_request_notifies_only_the_linked_active_coach(): void
@@ -279,17 +281,17 @@ class StudentDashboardTest extends TestCase
             ->assertSee('lang="nl-NL" step="60"', false)
             ->assertSee('Kim Coach')
             ->assertSee('Rae Coach')
-            ->assertSee('Jo Docent')
+            ->assertDontSee('Jo Docent')
             ->assertDontSee('Alex Anders');
 
-        $this->post('/dashboard/gesprekaanvraag', ['docent_id' => 6])
+        $this->post('/dashboard/gesprekaanvraag', ['docent_id' => 2])
             ->assertSessionHasErrors('datum');
         $this->post('/dashboard/gesprekaanvraag', [
             'datum' => now()->addDay()->format('Y-m-d\TH:i'),
             'bericht' => 'Ik wil graag praten over mijn voortgang.',
         ])
             ->assertSessionHasErrors('docent_id');
-        $this->post('/dashboard/gesprekaanvraag', ['docent_id' => 6])
+        $this->post('/dashboard/gesprekaanvraag', ['docent_id' => 2])
             ->assertSessionHasErrors('datum');
         $this->post('/dashboard/gesprekaanvraag', [
             'docent_id' => 3, 'datum' => '2026-11-13T10:00', 'bericht' => 'Ongekoppelde docent',
@@ -297,7 +299,7 @@ class StudentDashboardTest extends TestCase
             ->assertSessionHasErrors('docent_id');
 
         $this->post('/dashboard/gesprekaanvraag', [
-            'docent_id' => 6,
+            'docent_id' => 2,
             'datum' => '2026-11-13T10:00',
             'bericht' => 'Ik wil graag praten over mijn voortgang.',
         ])
@@ -315,16 +317,17 @@ class StudentDashboardTest extends TestCase
             ->assertOk()
             ->assertSee('Gespreksaanvraag:')
             ->assertSee('In afwachting van de docent');
-        $notification = DB::table('notifications')->where('notifiable_id', 6)->first();
+        $notification = DB::table('notifications')->where('notifiable_id', 2)->first();
         $this->assertNotNull($notification);
         $this->assertStringContainsString('Ik wil graag praten over mijn voortgang.', $notification->data);
-        $this->assertDatabaseMissing('notifications', ['notifiable_id' => 2]);
         $this->assertDatabaseMissing('notifications', ['notifiable_id' => 3]);
         $this->assertDatabaseMissing('notifications', ['notifiable_id' => 5]);
+        $this->assertDatabaseMissing('notifications', ['notifiable_id' => 6]);
 
         $this->actingAs(User::findOrFail(3))->post('/dashboard/meldingen/'.$notification->id.'/lezen')->assertNotFound();
         $this->actingAs(User::findOrFail(5))->post('/dashboard/meldingen/'.$notification->id.'/lezen')->assertNotFound();
-        $this->actingAs(User::findOrFail(6))->post('/dashboard/meldingen/'.$notification->id.'/lezen')
+        $this->actingAs(User::findOrFail(6))->post('/dashboard/meldingen/'.$notification->id.'/lezen')->assertNotFound();
+        $this->actingAs(User::findOrFail(2))->post('/dashboard/meldingen/'.$notification->id.'/lezen')
             ->assertRedirect('/dashboard#gesprekken');
         $this->assertNotNull(DB::table('notifications')->where('id', $notification->id)->value('read_at'));
 
@@ -332,8 +335,8 @@ class StudentDashboardTest extends TestCase
             ->where('onderwerp', \App\DocentDashboard::MEETING_REQUEST_TOPIC)
             ->value('idgesprek');
         $this->assertNotNull($requestId);
-        $this->assertTrue(app(\App\DocentDashboard::class)->studentMemberIds(User::findOrFail(6))->contains(1));
-        $this->actingAs(User::findOrFail(6))
+        $this->assertTrue(app(\App\DocentDashboard::class)->studentMemberIds(User::findOrFail(2))->contains(1));
+        $this->actingAs(User::findOrFail(2))
             ->put('/docent/gesprekaanvragen/'.$requestId.'/goedkeuren')
             ->assertRedirect('/dashboard?aanvragen=verwerkt#gesprekken');
         $this->actingAs(User::findOrFail(1))->get('/dashboard')

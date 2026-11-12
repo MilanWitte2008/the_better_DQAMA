@@ -15,7 +15,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Docentdashboard · Ontwikkelplatform</title>
+    <title>{{ $hasCoachRole ? 'Coachdashboard' : 'Docentdashboard' }} · Ontwikkelplatform</title>
     <script src="{{ asset('js/dashboard-notifications.js') }}?v={{ filemtime(public_path('js/dashboard-notifications.js')) }}" defer></script>
     <style>
         @include('dashboards.docent-style') @include('components.dashboard-navigation-style')
@@ -32,17 +32,19 @@
         <div class="profile-chip">
             <span
                 class="avatar">{{ mb_strtoupper(mb_substr($user->voornaam ?? '', 0, 1) . mb_substr($user->achternaam ?? '', 0, 1)) }}</span>
-            <span><strong>{{ $user->voornaam }} {{ $user->achternaam }}</strong><small>Docent</small></span>
+            <span><strong>{{ $user->voornaam }} {{ $user->achternaam }}</strong><small>{{ $user->rol?->displayName() ?? 'Docent' }}</small></span>
         </div>
         <nav aria-label="Hoofdnavigatie">
             <a href="#inhoud" aria-label="Overzicht">◈ <span>Overzicht</span></a>
             <a href="#studenten" aria-label="Mijn studenten">♙ <span>Mijn
                     studenten</span><b>{{ $studentCount }}</b></a>
-            <a href="#gesprekken" aria-label="Coachgesprekken">◷ <span>Coachgesprekken</span></a>
-            <a href="#notities" aria-label="Notities">▤ <span>Notities</span></a>
+            @if($hasCoachRole)
+                <a href="#gesprekken" aria-label="Coachgesprekken">◷ <span>Coachgesprekken</span></a>
+                <a href="#notities" aria-label="Notities">▤ <span>Notities</span></a>
+            @endif
             <a href="#rapportages" aria-label="Voortgang">▥ <span>Voortgang</span></a>
         </nav>
-        <div class="sidebar-footer"><strong>Docentomgeving</strong><small>Persoonlijk dashboard</small></div>
+        <div class="sidebar-footer"><strong>{{ $hasCoachRole ? 'Coachomgeving' : 'Docentomgeving' }}</strong><small>Persoonlijk dashboard</small></div>
     </aside>
     <div class="workspace">
         <header class="topbar">
@@ -80,10 +82,10 @@
                     </ul>
                 </div>
             @endif
-            @unless ($coachLinked)
+            @if ($hasCoachRole && ! $coachLinked)
                 <div class="notice" role="status">Je account heeft nog geen coachprofiel. Vraag de beheerder om je account
                     aan een coachprofiel te koppelen.</div>
-            @endunless
+            @endif
             <section class="hero" aria-label="Samenvatting">
                 <div><span class="hero-tag">JOUW BEGELEIDING MAAKT HET VERSCHIL</span>
                     <h2>Ruimte om te groeien.<br>Aandacht voor iedereen.</h2>
@@ -97,7 +99,13 @@
                         class="art-label">Elke stap telt.</span></div>
             </section>
             <section class="metrics" aria-label="Kerncijfers">
-                @foreach ([['Mijn studenten', $studentCount, 'Studenten in jouw klassen', '♙'], ['Geplande gesprekken', $upcomingCount, 'Vanaf dit moment', '◷'], ['Behaalde leeruitkomsten', $achieved . ' / ' . $total, 'Van jouw studenten', '✓'], ['Mijn notities', $notesCount, 'Bij gekoppelde studenten', '▤']] as [$label, $value, $hint, $icon])
+                @php
+                    $dashboardMetrics = [['Studenten in mijn groepen', $studentCount, 'Actieve groepsleden', '♙'], ['Behaalde leeruitkomsten', $achieved . ' / ' . $total, 'Van studenten in mijn groepen', '✓']];
+                    if ($hasCoachRole) {
+                        $dashboardMetrics = [['Mijn studenten', $studentCount, 'Studenten in jouw begeleiding', '♙'], ['Geplande gesprekken', $upcomingCount, 'Vanaf dit moment', '◷'], ['Behaalde leeruitkomsten', $achieved . ' / ' . $total, 'Van jouw studenten', '✓'], ['Mijn notities', $notesCount, 'Bij gekoppelde studenten', '▤']];
+                    }
+                @endphp
+                @foreach ($dashboardMetrics as [$label, $value, $hint, $icon])
                     <article class="metric">
                         <div><span>{{ $label }}</span><span class="metric-icon">{{ $icon }}</span>
                         </div><strong>{{ $value }}</strong><small>{{ $hint }}</small>
@@ -298,6 +306,7 @@
                 <div class="notice" role="status">Deze student is niet beschikbaar binnen jouw huidige begeleiding.
                 </div>
             @endif
+            @if($hasCoachRole)
             <div class="bottom-columns">
                 <section class="card" id="gesprekken">
                     @php
@@ -478,6 +487,7 @@
                     <p class="footnote">De laatste acht notities die aan jouw coachprofiel zijn gekoppeld.</p>
                 </section>
             </div>
+            @endif
             <footer>Ontwikkelplatform <span>Gegevens opgehaald op {{ now()->format('d-m-Y H:i') }} · <a
                         href="#inhoud">Terug naar boven ↑</a></span></footer>
         </main>

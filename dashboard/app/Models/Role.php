@@ -16,7 +16,20 @@ class Role extends Model
     public function displayName(): string
     {
         return in_array(strtolower((string) $this->naam), ['coach', 'docent'], true)
-            ? 'Docent' : ($this->naam ?? 'Naamloze rol');
+            ? ucfirst(strtolower((string) $this->naam)) : ($this->naam ?? 'Naamloze rol');
+    }
+
+    public function assignmentName(): string
+    {
+        return $this->displayName();
+    }
+
+    public function isDashboardRole(): bool
+    {
+        return in_array(strtolower((string) $this->naam), [
+            'student', 'coach', 'docent', 'admin', 'applicatiebeheerder', 'beheerder',
+            'teammanager', 'teamleider', 'manager',
+        ], true);
     }
 
     // Een rol kan bij meerdere gebruikers horen.

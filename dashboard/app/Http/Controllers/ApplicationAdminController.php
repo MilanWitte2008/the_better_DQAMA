@@ -43,11 +43,22 @@ class ApplicationAdminController extends Controller
                     });
                 }
             })
-            ->when($filters['role'] ?? null, fn ($query, $role) => $query->where('rol_idrol', $role))
+            ->when($filters['role'] ?? null, function ($query, $role): void {
+                if (Schema::hasTable('lid_rol')) {
+                    $query->whereHas('rollen', fn ($roleQuery) => $roleQuery->where('rol.idrol', $role));
+                } else {
+                    $query->where('rol_idrol', $role);
+                }
+            })
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->orderBy('achternaam')->orderBy('idlid')->paginate(12)->withQueryString();
         // Tel hoeveel gebruikers elke rol heeft.
-        $roles = Role::query()->withCount(['members as member_count'])->orderBy('naam')->get();
+        $roles = Role::query()->orderBy('naam')->get();
+        foreach ($roles as $role) {
+            $role->member_count = Schema::hasTable('lid_rol')
+                ? DB::table('lid_rol')->where('rol_idrol', $role->idrol)->count()
+                : DB::table('lid')->where('rol_idrol', $role->idrol)->count();
+        }
         $stats = ['members' => User::count(), 'active' => User::where('status', 'actief')->count(), 'roles' => $roles->count()];
 
         // Tel nieuwe accounts per maand in het gekozen jaar. Een lege maand krijgt 0.
@@ -60,7 +71,9 @@ class ApplicationAdminController extends Controller
             ->pluck('total', 'month');
         $monthly = collect(range(1, 12))->map(fn (int $month): int => (int) ($monthlyCounts->get(sprintf('%04d-%02d', $year, $month), 0)))->all();
         $roleDistribution = $roles->map(fn (Role $role): array => ['label' => $role->displayName(), 'value' => (int) $role->member_count])->values();
-        $unassigned = $stats['members'] - $roles->sum('member_count');
+        $unassigned = Schema::hasTable('lid_rol')
+            ? User::query()->whereDoesntHave('rollen')->count()
+            : User::whereNull('rol_idrol')->count();
         if ($unassigned > 0) {
             $roleDistribution->push(['label' => 'Geen rol', 'value' => $unassigned]);
         }
@@ -94,9 +107,12 @@ class ApplicationAdminController extends Controller
 
     private function form(User $member)
     {
+        $roles = Role::orderBy('naam')->get();
+
         return view('dashboards.admin-member-form', [
-            'member' => $member, 'roles' => Role::orderBy('naam')->get(), 'roleKey' => 'beheerder',
-            'studentHours' => $member->exists && $member->dashboardRoleKey() === 'student' && Schema::hasTable('urenregistratie')
+            'member' => $member, 'roles' => $roles, 'primaryRoles' => $roles->filter(fn (Role $role): bool => $role->isDashboardRole()), 'roleKey' => 'beheerder',
+            'selectedRoleIds' => $member->roleIds(), 'supportsMultipleRoles' => Schema::hasTable('lid_rol'),
+            'studentHours' => $member->exists && $member->hasAnyRole(['student']) && Schema::hasTable('urenregistratie')
                 ? $this->studentHours($member)->orderByDesc('datum')->get() : collect(),
             'availablePhases' => Schema::hasTable('fase') ? DB::table('fase')->orderBy('volgorde')->get() : collect(),
             'assignedPhases' => $member->exists && Schema::hasTable('student_phase_assignments')
@@ -120,7 +136,7 @@ class ApplicationAdminController extends Controller
     public function saveHours(Request $request, User $member): RedirectResponse
     {
         $this->authorizeAdmin($request);
-        abort_unless($member->dashboardRoleKey() === 'student', 403);
+        abort_unless($member->hasAnyRole(['student']), 403);
         $data = $request->validate([
             'entry_id' => ['nullable', 'integer'],
             'datum' => ['required', 'date', 'before_or_equal:today'],
@@ -153,7 +169,7 @@ class ApplicationAdminController extends Controller
     public function assignPhase(Request $request, User $member): RedirectResponse
     {
         $this->authorizeAdmin($request);
-        abort_unless($member->dashboardRoleKey() === 'student', 403);
+        abort_unless($member->hasAnyRole(['student']), 403);
         $data = $request->validate([
             'phase_id' => ['nullable', 'required_without:phase_name', 'integer', 'exists:fase,idfase'],
             'phase_name' => ['nullable', 'required_without:phase_id', 'prohibits:phase_id', 'string', 'max:50'],
@@ -193,6 +209,22 @@ class ApplicationAdminController extends Controller
         return redirect()->to(route('dashboard').'#gebruikers')->with('success', 'Gebruiker bijgewerkt.');
     }
 
+    public function createRole(Request $request): RedirectResponse
+    {
+        $this->authorizeAdmin($request);
+        $data = $request->validate([
+            'naam' => ['required', 'string', 'max:50', Rule::unique('rol', 'naam')],
+            'beschrijving' => ['nullable', 'string', 'max:255'],
+        ]);
+        $roleData = ['naam' => trim($data['naam'])];
+        if (Schema::hasColumn('rol', 'beschrijving')) {
+            $roleData['beschrijving'] = $data['beschrijving'] ?? null;
+        }
+        DB::table('rol')->insert($roleData);
+
+        return redirect()->to(route('dashboard').'#rollen')->with('success', 'Rol toegevoegd. Je kunt deze nu als extra rol toewijzen.');
+    }
+
     // Verwijder een gebruiker. Het eigen account mag niet weg.
     public function destroy(Request $request, User $member)
     {
@@ -227,6 +259,8 @@ class ApplicationAdminController extends Controller
             'achternaam' => ['required', 'string', 'max:50'],
             'email' => ['required', 'email', 'max:100', Rule::unique('lid', 'email')->ignore($member->getKey(), 'idlid')],
             'rol_idrol' => ['required', 'integer', 'exists:rol,idrol'],
+            'rol_ids' => [Schema::hasTable('lid_rol') ? 'sometimes' : 'prohibited', 'array'],
+            'rol_ids.*' => ['integer', 'distinct', 'exists:rol,idrol'],
             'status' => ['required', Rule::in(['actief', 'inactief'])],
             'password' => [$member->exists ? 'nullable' : 'required', 'string', 'min:12', 'max:128', 'confirmed'],
             'klas' => ['sometimes', 'nullable', 'string', 'max:20'],
@@ -235,9 +269,20 @@ class ApplicationAdminController extends Controller
                 ? ['sometimes', 'nullable', 'string', 'max:20', Rule::unique('student', 'studentnummer')->ignore($studentProfile?->idstudent, 'idstudent')]
                 : ['prohibited'],
         ]);
+        if (! Role::whereKey($data['rol_idrol'])->first()?->isDashboardRole()) {
+            throw ValidationException::withMessages(['rol_idrol' => 'Kies een hoofdrol die toegang geeft tot een bestaand dashboard. Nieuwe rollen kun je als extra rol toevoegen.']);
+        }
         // De beheerder mag de eigen rol niet veranderen of het eigen account uitzetten.
+        $roleIds = array_values(array_unique(array_map('intval', array_merge(
+            [(int) $data['rol_idrol']],
+            $data['rol_ids'] ?? [],
+        ))));
         if ($member->exists && $member->is($request->user())) {
-            if ((int) $data['rol_idrol'] !== (int) $member->rol_idrol || $data['status'] !== 'actief') {
+            $currentRoleIds = $member->roleIds();
+            sort($currentRoleIds);
+            $requestedRoleIds = $roleIds;
+            sort($requestedRoleIds);
+            if ($requestedRoleIds !== $currentRoleIds || $data['status'] !== 'actief') {
                 throw ValidationException::withMessages(['status' => 'Je kunt je eigen rol of actieve status niet wijzigen.']);
             }
         }
@@ -253,12 +298,18 @@ class ApplicationAdminController extends Controller
             $member->aangemaakt_datum = now();
         }
         $member->save();
-        $roleName = strtolower((string) Role::whereKey($member->rol_idrol)->value('naam'));
-        if (in_array($roleName, ['coach', 'docent'], true) && Schema::hasTable('coach')
+        if (Schema::hasTable('lid_rol')) {
+            DB::table('lid_rol')->where('lid_idlid', $member->getKey())->delete();
+            DB::table('lid_rol')->insert(array_map(fn (int $roleId): array => [
+                'lid_idlid' => $member->getKey(), 'rol_idrol' => $roleId,
+            ], $roleIds));
+        }
+        $roleNames = Role::whereIn('idrol', $roleIds)->pluck('naam')->map(fn ($name): string => strtolower((string) $name));
+        if ($roleNames->contains('coach') && Schema::hasTable('coach')
             && ! DB::table('coach')->where('lid_idlid', $member->getKey())->exists()) {
             DB::table('coach')->insert(['lid_idlid' => $member->getKey()]);
         }
-        $isStudent = strtolower((string) Role::whereKey($member->rol_idrol)->value('naam')) === 'student';
+        $isStudent = $roleNames->contains('student');
         if ($hasStudentProfiles && ($isStudent || $studentProfile)) {
             $profileData = array_intersect_key($data, array_flip(['klas', 'opleiding', 'studentnummer']));
             if ($studentProfile) {
