@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\DocentDashboard;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\MessageBag;
 use Illuminate\Support\ViewErrorBag;
@@ -308,7 +308,7 @@ class DocentDashboardTest extends TestCase
         $this->assertDatabaseMissing('begeleidingsnotitie', ['id_notitie' => $note->id_notitie]);
     }
 
-    public function test_docent_can_manage_meetings_and_outcomes_but_not_student_profiles(): void
+    public function test_docent_can_manage_meetings_but_not_assessments_or_student_profiles(): void
     {
         $this->actingAs(User::findOrFail(1));
         $input = ['student_idstudent' => 11, 'onderwerp' => 'Evaluatie', 'datum' => '2026-11-10T10:30', 'inhoud' => 'Verslag', 'afspraken' => 'Vervolg'];
@@ -316,9 +316,9 @@ class DocentDashboardTest extends TestCase
         $id = DB::table('gesprekken')->where('onderwerp', 'Evaluatie')->value('idgesprek');
         $this->put('/docent/gesprekken/'.$id, array_replace($input, ['onderwerp' => 'Verplaatst', 'datum' => '2026-11-11T12:00']))->assertRedirect();
         $this->assertDatabaseHas('gesprekken', ['idgesprek' => $id, 'onderwerp' => 'Verplaatst']);
-        $this->put('/docent/leeruitkomsten/2', ['status' => 'Behaald', 'opmerking' => 'Goed gedaan'])->assertRedirect('/dashboard?student=11#student-detail');
-        $this->assertDatabaseHas('student_leeruitkomsten', ['id_leeruitkomsten' => 2, 'status' => 'Behaald', 'vooruitgang' => 100]);
-        $this->get('/dashboard?student=11')->assertOk()->assertSee('100%')->assertSee('Goed gedaan');
+        $this->put('/docent/leeruitkomsten/2', ['status' => 'Behaald', 'opmerking' => 'Goed gedaan'])->assertForbidden();
+        $this->assertDatabaseHas('student_leeruitkomsten', ['id_leeruitkomsten' => 2, 'status' => 'Bezig']);
+        $this->get('/dashboard?student=11')->assertOk()->assertSee('50%')->assertDontSee('Goed gedaan');
         $this->put('/docent/studenten/11', ['klas' => 'SD3A', 'opleiding' => 'ICT'])->assertForbidden();
         $this->assertDatabaseHas('student', ['idstudent' => 11, 'klas' => 'SD2A', 'opleiding' => 'Software Development']);
         $this->get('/dashboard?student=11')->assertOk()->assertSee('SD2A')->assertSee('Software Development')->assertDontSee('Studentgegevens bewerken');
@@ -334,7 +334,7 @@ class DocentDashboardTest extends TestCase
         $this->delete('/docent/notities/3')->assertNotFound();
         $this->put('/docent/gesprekken/3', ['onderwerp' => 'Overnemen', 'datum' => '2026-11-10T10:30'])->assertNotFound();
         $this->delete('/docent/gesprekken/3')->assertNotFound();
-        $this->put('/docent/leeruitkomsten/3', ['status' => 'Behaald'])->assertNotFound();
+        $this->put('/docent/leeruitkomsten/3', ['status' => 'Behaald'])->assertForbidden();
         $this->put('/docent/studenten/14', ['klas' => 'Nieuw'])->assertForbidden();
         DB::table('student_coach')->where('student_idstudent', 11)->update(['status' => 'inactief']);
         $this->delete('/docent/notities/1')->assertNotFound();
@@ -345,7 +345,7 @@ class DocentDashboardTest extends TestCase
     {
         $this->actingAs(User::findOrFail(1));
         $this->from('/dashboard#notities')->post('/docent/notities', ['_form' => 'note-new', 'idstudent' => 11, 'type' => 'Notitie', 'inhoud' => ''])->assertSessionHasErrors('inhoud')->assertSessionHasInput('_form', 'note-new');
-        $this->put('/docent/leeruitkomsten/1', ['status' => 'Onbekend'])->assertSessionHasErrors('status');
+        $this->put('/docent/leeruitkomsten/1', ['status' => 'Onbekend'])->assertForbidden();
         $this->post('/docent/gesprekken', ['student_idstudent' => 11, 'onderwerp' => 'Ongeldig', 'datum' => 'morgen'])->assertSessionHasErrors('datum');
         $this->assertDatabaseMissing('gesprekken', ['onderwerp' => 'Ongeldig']);
         $this->put('/docent/studenten/11', ['klas' => str_repeat('x', 21)])->assertForbidden();
@@ -384,18 +384,24 @@ class DocentDashboardTest extends TestCase
         $this->put('/docent/studenten/11', ['klas' => 'Geen toegang'])->assertForbidden();
     }
 
-    public function test_outcomes_can_be_assigned_once_then_edited(): void
+    public function test_only_admin_can_assign_and_edit_outcomes_without_resetting_existing_assessments(): void
     {
-        $this->actingAs(User::findOrFail(1))->get('/dashboard?student=12')->assertOk()->assertSee('STUDENTDOSSIER');
-        $input = ['leeruitkomsten_leeruitkomsten_id' => 1];
-        $this->post('/docent/studenten/12/leeruitkomsten', $input)->assertRedirect('/dashboard?student=12#student-detail');
-        $this->post('/docent/studenten/12/leeruitkomsten', $input)->assertRedirect();
+        $this->actingAs(User::findOrFail(1))->post('/docent/studenten/12/leeruitkomsten', ['leeruitkomsten_leeruitkomsten_id' => 1])->assertForbidden();
+        $this->post('/docent/studenten/12/leeruitkomsten/nieuw', ['titel' => 'Verboden'])->assertForbidden();
+        $this->post('/beheer/gebruikers/12/leeruitkomsten', ['outcome_id' => 1])->assertForbidden();
+        $this->delete('/beheer/gebruikers/11/leeruitkomsten/1')->assertForbidden();
+        $this->actingAs(User::findOrFail(11))->put('/beheer/gebruikers/11/leeruitkomsten/1', ['status' => 'Behaald'])->assertForbidden();
+        $this->signInAsAdmin();
+        $this->post('/beheer/gebruikers/12/leeruitkomsten', ['outcome_id' => 1])->assertSessionHasNoErrors()->assertRedirect();
+        $this->put('/beheer/gebruikers/12/leeruitkomsten/1', ['status' => 'Behaald', 'opmerking' => 'Afgerond'])->assertSessionHasNoErrors();
+        $this->post('/beheer/gebruikers/12/leeruitkomsten', ['outcome_id' => 1])->assertSessionHasNoErrors();
         $this->assertSame(1, DB::table('student_leeruitkomsten')->where('student_idstudent', 12)->count());
-        $id = DB::table('student_leeruitkomsten')->where('student_idstudent', 12)->value('id_leeruitkomsten');
-        $this->put('/docent/leeruitkomsten/'.$id, ['status' => 'Behaald', 'opmerking' => 'Afgerond'])->assertRedirect();
-        $this->assertDatabaseHas('student_leeruitkomsten', ['id_leeruitkomsten' => $id, 'status' => 'Behaald']);
-        $this->post('/docent/studenten/13/leeruitkomsten', $input)->assertForbidden();
-        $this->post('/docent/studenten/12/leeruitkomsten', ['leeruitkomsten_leeruitkomsten_id' => 999])->assertSessionHasErrors('leeruitkomsten_leeruitkomsten_id');
+        $this->assertDatabaseHas('student_leeruitkomsten', ['student_idstudent' => 12, 'status' => 'Behaald', 'opmerking' => 'Afgerond']);
+        $this->put('/beheer/gebruikers/12/leeruitkomsten/2', ['status' => 'Behaald'])->assertNotFound();
+        $this->put('/beheer/gebruikers/12/leeruitkomsten/1', ['status' => 'Onbekend'])->assertSessionHasErrors('status');
+        $this->post('/beheer/gebruikers/12/leeruitkomsten', ['outcome_id' => 999])->assertSessionHasErrors('outcome_id');
+        $this->get('/beheer/gebruikers/12/bewerken')->assertOk()->assertSee('Beoordeling bewerken')->assertSee('Afgerond');
+        $this->actingAs(User::findOrFail(1))->get('/dashboard?student=12')->assertOk()->assertSee('Afgerond')->assertDontSee('Beoordeling opslaan');
     }
 
     public function test_meeting_datetime_with_seconds_is_saved_in_database_format(): void
@@ -471,6 +477,27 @@ class DocentDashboardTest extends TestCase
         return array_replace(['voornaam' => 'Nieuwe', 'achternaam' => 'Student', 'email' => 'nieuw@example.test', 'password' => 'veilig-test-wachtwoord', 'password_confirmation' => 'veilig-test-wachtwoord', 'klas' => 'SD1', 'opleiding' => 'ICT'], $overrides);
     }
 
+    public function test_admin_creates_missing_teacher_profile_without_duplicating_existing_profiles(): void
+    {
+        $this->signInAsAdmin();
+        DB::table('rol')->where('idrol', 1)->update(['naam' => 'Coach']);
+        DB::table('coach')->where('lid_idlid', 1)->delete();
+        $this->get('/beheer/gebruikers/1/bewerken')->assertOk()->assertSee('Docent')->assertDontSee('>Coach<', false);
+        $input = ['voornaam' => 'Docent', 'achternaam' => 'Voorbeeld', 'email' => '1@example.test', 'rol_idrol' => 1, 'status' => 'actief'];
+        $this->put('/beheer/gebruikers/1', $input)->assertRedirect();
+        $profileId = DB::table('coach')->where('lid_idlid', 1)->value('idcoach');
+        $this->assertNotNull($profileId);
+        $this->put('/beheer/gebruikers/1', $input)->assertRedirect();
+        $this->assertSame(1, DB::table('coach')->where('lid_idlid', 1)->count());
+        $this->assertEquals($profileId, DB::table('coach')->where('lid_idlid', 1)->value('idcoach'));
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertDontSee('Je account heeft nog geen coachprofiel');
+        foreach (['Coach', 'Docent'] as $name) {
+            $role = new Role;
+            $role->naam = $name;
+            $this->assertSame('Docent', $role->displayName());
+        }
+    }
+
     public function test_docent_cannot_create_student_account_profile_or_assignment(): void
     {
         $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertDontSee('Student toevoegen');
@@ -498,20 +525,20 @@ class DocentDashboardTest extends TestCase
         $this->assertDatabaseMissing('lid', ['email' => 'nieuw@example.test']);
     }
 
-    public function test_empty_chart_can_be_activated_with_real_learning_outcomes(): void
+    public function test_admin_assessments_update_the_teachers_chart(): void
     {
         DB::table('student_leeruitkomsten')->delete();
         DB::table('leeruitkomsten')->delete();
-        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('Nog geen data')->assertSee('Dossier bekijken');
-        $this->post('/docent/studenten/11/leeruitkomsten/nieuw', ['titel' => 'Zelfstandig programmeren', 'omschrijving' => 'Een werkende applicatie maken'])->assertRedirect();
-        $id = DB::table('student_leeruitkomsten')->value('id_leeruitkomsten');
-        $this->get('/dashboard')->assertOk()->assertSee('--progress: 0%', false)->assertDontSee('Nog geen data');
-        $this->put('/docent/leeruitkomsten/'.$id, ['status' => 'Behaald'])->assertRedirect();
-        $this->get('/dashboard')->assertOk()->assertSee('--progress: 100%', false);
-        $this->post('/docent/studenten/12/leeruitkomsten/nieuw', ['titel' => 'Samenwerken'])->assertRedirect();
-        $this->get('/dashboard')->assertOk()->assertSee('--progress: 50%', false);
-        $this->post('/docent/studenten/13/leeruitkomsten/nieuw', ['titel' => 'Geen toegang'])->assertForbidden();
-        $this->post('/docent/studenten/11/leeruitkomsten/nieuw', ['titel' => ''])->assertSessionHasErrors('titel');
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('Nog geen data');
+        $this->signInAsAdmin();
+        $this->post('/beheer/gebruikers/11/leeruitkomsten', ['titel' => 'Zelfstandig programmeren'])->assertSessionHasNoErrors();
+        $id = DB::table('leeruitkomsten')->value('leeruitkomsten_id');
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('--progress: 0%', false);
+        $this->actingAs(User::findOrFail(3))->put('/beheer/gebruikers/11/leeruitkomsten/'.$id, ['status' => 'Behaald'])->assertSessionHasNoErrors();
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('--progress: 100%', false);
+        $this->actingAs(User::findOrFail(3))->post('/beheer/gebruikers/12/leeruitkomsten', ['titel' => 'Samenwerken'])->assertSessionHasNoErrors();
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('--progress: 50%', false);
+        $this->actingAs(User::findOrFail(3))->post('/beheer/gebruikers/11/leeruitkomsten', ['titel' => ''])->assertSessionHasErrors('titel');
         $this->assertDatabaseCount('leeruitkomsten', 2);
     }
 }
