@@ -319,6 +319,7 @@ class DocentDashboard
                 : null;
             $selected = $selectedGroupStudent ? (object) [
                 'idstudent' => $selectedGroupStudent->idlid,
+                'member_id' => $selectedGroupStudent->idlid,
                 'studentnummer' => null,
                 'klas' => $selectedGroupStudent->groepnaam,
                 'opleiding' => null,
@@ -332,6 +333,10 @@ class DocentDashboard
                 'studentCount' => $studentCount,
                 'filtered' => collect(),
                 'selected' => $selected,
+                'assignmentResults' => $selectedGroupStudent && Schema::hasTable('opdracht_resultaten')
+                    ? DB::table('opdracht_resultaten')->where('lid_idlid', $selectedGroupStudent->idlid)
+                        ->orderByDesc('datum')->orderByDesc('idopdracht_resultaat')->get()
+                    : collect(),
                 'outcomes' => $outcomes,
                 'search' => $search,
                 'class' => $class,
@@ -436,6 +441,10 @@ class DocentDashboard
             ->values();
 
         return compact('students', 'filtered', 'selected', 'outcomes', 'search', 'class', 'attention', 'total', 'achieved', 'teacherGroups', 'teacherGroupStudents', 'visibleGroupStudents') + [
+            'assignmentResults' => $selected && Schema::hasTable('opdracht_resultaten')
+                ? DB::table('opdracht_resultaten')->where('lid_idlid', $selected->lid_idlid)
+                    ->orderByDesc('datum')->orderByDesc('idopdracht_resultaat')->get()
+                : collect(),
             'availableOutcomes' => $selected ? DB::table('leeruitkomsten')->whereNotIn('leeruitkomsten_id', DB::table('student_leeruitkomsten')->where('student_idstudent', $selected->idstudent)->select('leeruitkomsten_leeruitkomsten_id'))->orderBy('code')->get(['leeruitkomsten_id', 'code', 'titel']) : collect(),
             'classes' => $classes,
             'attentionCount' => $students->where('attention', true)->count(),

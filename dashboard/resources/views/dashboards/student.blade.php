@@ -133,6 +133,55 @@
     $hours = (clone $hoursQuery)
         ->orderByDesc('datum')
         ->get();
+    $isApprovedHours = fn ($entry): bool => in_array(
+        mb_strtolower(trim((string) $entry->status)),
+        ['goedgekeurd', 'gevalideerd', 'approved', 'validated'],
+        true,
+    );
+    $approvedHours = (float) $hours->filter($isApprovedHours)->sum(fn ($entry) => (float) $entry->uren);
+    $pendingHours = (float) $hours->filter(fn ($entry): bool => in_array(
+        mb_strtolower(trim((string) $entry->status)),
+        ['in afwachting', 'pending'],
+        true,
+    ))->sum(fn ($entry) => (float) $entry->uren);
+
+    $today = now()->startOfDay();
+    $defaultPeriodA = [$today->copy()->subDays(29), $today->copy()];
+    $defaultPeriodB = [$today->copy()->subDays(59), $today->copy()->subDays(30)];
+    $periodDate = function (string $key, \Illuminate\Support\Carbon $fallback): \Illuminate\Support\Carbon {
+        $value = request()->query($key);
+        if (! is_string($value) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return $fallback;
+        }
+
+        try {
+            $date = \Illuminate\Support\Carbon::createFromFormat('!Y-m-d', $value);
+            return $date && $date->format('Y-m-d') === $value ? $date : $fallback;
+        } catch (\Throwable) {
+            return $fallback;
+        }
+    };
+    $periodA = [$periodDate('period_a_start', $defaultPeriodA[0]), $periodDate('period_a_end', $defaultPeriodA[1])];
+    $periodB = [$periodDate('period_b_start', $defaultPeriodB[0]), $periodDate('period_b_end', $defaultPeriodB[1])];
+    if ($periodA[0]->gt($periodA[1])) {
+        $periodA = $defaultPeriodA;
+    }
+    if ($periodB[0]->gt($periodB[1])) {
+        $periodB = $defaultPeriodB;
+    }
+    $periodHours = function (array $period) use ($hours, $isApprovedHours): float {
+        return (float) $hours->filter(function ($entry) use ($period, $isApprovedHours): bool {
+            if (! $isApprovedHours($entry)) {
+                return false;
+            }
+            $date = \Illuminate\Support\Carbon::parse($entry->datum)->startOfDay();
+            return ! $date->lt($period[0]) && ! $date->gt($period[1]);
+        })->sum(fn ($entry) => (float) $entry->uren);
+    };
+    $periodAHours = $periodHours($periodA);
+    $periodBHours = $periodHours($periodB);
+    $periodHoursDifference = $periodAHours - $periodBHours;
+    $periodHoursChange = $periodBHours > 0 ? ($periodHoursDifference / $periodBHours) * 100 : null;
 
     // Haal de fases van de student op.
     $phases = $assignmentQuery()
@@ -279,7 +328,7 @@
     // Haal goedgekeurde uren van de laatste zes maanden op.
     $monthStart = now()->startOfMonth()->subMonths(5);
     $monthlyHours = (clone $hoursQuery)
-        ->where('status', 'Goedgekeurd')
+        ->whereRaw("LOWER(TRIM(status)) IN ('goedgekeurd', 'gevalideerd', 'approved', 'validated')")
         ->whereBetween('datum', [$monthStart->toDateString(), now()->toDateString()])
         ->selectRaw("DATE_FORMAT(datum, '%Y-%m') AS maand, SUM(uren) AS totaal")
         ->groupByRaw("DATE_FORMAT(datum, '%Y-%m')")
@@ -305,18 +354,24 @@
         return $month;
     });
 
+    $assignmentResults = $schema->hasTable('opdracht_resultaten')
+        ? $db->table('opdracht_resultaten')->where('lid_idlid', $memberId)
+            ->orderByDesc('datum')->orderByDesc('idopdracht_resultaat')->get()
+        : collect();
+
     // Bewaar de gegevens voor de pagina.
     $studentData = [
         'hours' => $hours,
         'totalHours' => (float) $hours->sum(fn ($entry) => (float) $entry->uren),
-        'approvedHours' => (float) $hours->where('status', 'Goedgekeurd')->sum('uren'),
-        'pendingHours' => (float) $hours->where('status', 'In afwachting')->sum('uren'),
+        'approvedHours' => $approvedHours,
+        'pendingHours' => $pendingHours,
         'hoursByMonth' => $hoursByMonth,
         'phases' => $phases,
         'reflections' => $reflections,
         'personalGoals' => $personalGoals,
         'goalIdColumn' => $goalIdColumn,
         'outcomes' => $outcomes,
+        'assignmentResults' => $assignmentResults,
         'goalTitleColumn' => $goalTitleColumn,
         'conversations' => $conversations,
         'notes' => $notes,
@@ -392,8 +447,31 @@
     </section>
 
         <section class="panel wide-panel" id="uren" data-dashboard-section="uren">
-            <h3>Uren &amp; resultaten</h3>
+            <h3>Uren</h3>
             <div class="hours-total">{{ number_format($studentData['totalHours'], $studentData['totalHours'] == (int) $studentData['totalHours'] ? 0 : 1, ',', '.') }} <span>uur geregistreerd</span></div>
+            <p class="hours-status-summary"><strong>Goedgekeurd: {{ number_format($studentData['approvedHours'], 1, ',', '.') }} uur</strong><span>In afwachting: {{ number_format($studentData['pendingHours'], 1, ',', '.') }} uur</span></p>
+            <div class="period-comparison">
+                <h4>Goedgekeurde uren vergelijken</h4>
+                <form method="GET" action="{{ route('dashboard') }}#uren" class="period-comparison-form">
+                    @if($roleKey === 'student')<input type="hidden" name="dashboard_role" value="student">@endif
+                    <fieldset>
+                        <legend>Periode 1</legend>
+                        <label>Van<input type="date" name="period_a_start" value="{{ $periodA[0]->toDateString() }}" required></label>
+                        <label>Tot en met<input type="date" name="period_a_end" value="{{ $periodA[1]->toDateString() }}" required></label>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Periode 2</legend>
+                        <label>Van<input type="date" name="period_b_start" value="{{ $periodB[0]->toDateString() }}" required></label>
+                        <label>Tot en met<input type="date" name="period_b_end" value="{{ $periodB[1]->toDateString() }}" required></label>
+                    </fieldset>
+                    <button type="submit" class="secondary-button">Vergelijken</button>
+                </form>
+                <div class="period-comparison-results" aria-live="polite">
+                    <div><span>Periode 1 · {{ $periodA[0]->format('d-m-Y') }} t/m {{ $periodA[1]->format('d-m-Y') }}</span><strong>{{ number_format($periodAHours, 1, ',', '.') }} uur</strong></div>
+                    <div><span>Periode 2 · {{ $periodB[0]->format('d-m-Y') }} t/m {{ $periodB[1]->format('d-m-Y') }}</span><strong>{{ number_format($periodBHours, 1, ',', '.') }} uur</strong></div>
+                    <p>Verschil: <strong>{{ $periodHoursDifference > 0 ? '+' : '' }}{{ number_format($periodHoursDifference, 1, ',', '.') }} uur</strong>@if($periodHoursChange !== null) ({{ $periodHoursChange > 0 ? '+' : '' }}{{ number_format($periodHoursChange, 1, ',', '.') }}%)@endif</p>
+                </div>
+            </div>
             <p class="muted-line">Goedgekeurde uren per maand in de afgelopen zes maanden</p>
             <div class="bar-chart" aria-label="Goedgekeurde uren per maand">
                 @foreach ($studentData['hoursByMonth'] as $month)
@@ -411,6 +489,25 @@
                             <time>{{ \Illuminate\Support\Carbon::parse($entry->datum)->format('d-m-Y') }}</time>
                             <strong>{{ number_format($entry->uren, 2, ',', '.') }} uur · {{ $entry->status }}</strong>
                             <span>{{ $entry->omschrijving }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+
+        <section class="panel wide-panel" id="resultaten" data-dashboard-section="resultaten">
+            <h3>Resultaten</h3>
+            <p class="muted-line">Cijfers die je docent of coach voor opdrachten heeft vastgelegd.</p>
+            @if($studentData['assignmentResults']->isEmpty())
+                <p class="info-strip">Er zijn nog geen opdrachtcijfers vastgelegd.</p>
+            @else
+                <ul class="updates-list assignment-results">
+                    @foreach($studentData['assignmentResults'] as $result)
+                        <li>
+                            <strong>{{ $result->opdracht }}</strong>
+                            <span>{{ \Illuminate\Support\Carbon::parse($result->datum)->format('d-m-Y') }}</span>
+                            <b class="assignment-grade">{{ number_format((float) $result->cijfer, 1, ',', '.') }} / 10</b>
+                            @if($result->opmerking)<small>Feedback: {{ $result->opmerking }}</small>@endif
                         </li>
                     @endforeach
                 </ul>

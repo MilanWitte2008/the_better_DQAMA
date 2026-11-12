@@ -563,6 +563,39 @@ body.dashboard-navigation .topbar .notification-panel p {
 .hours-total span {
     font-size: 14px;
 }
+.hours-status-summary {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 18px;
+    margin:0 0 16px;
+    color:#315d7c;
+    font-size:12px;
+}
+.hours-status-summary strong {color:#087e65}
+.period-comparison {
+    margin:18px 0 22px;
+    padding:18px;
+    border:1px solid #d5e6f0;
+    border-radius:10px;
+    background:#f7fafc;
+}
+.period-comparison h4 {margin:0 0 14px;font-size:14px;color:#183c63}
+.period-comparison-form {display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:12px}
+.period-comparison-form fieldset {display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0;padding:10px;border:1px solid #d5e6f0;border-radius:7px}
+.period-comparison-form legend {padding:0 5px;color:#54748e;font-size:11px;font-weight:600}
+.period-comparison-form label {display:grid;gap:5px;color:#54748e;font-size:10px}
+.period-comparison-form input {width:100%;min-width:0;padding:8px;border:1px solid #cfe0eb;border-radius:6px;background:#fff;color:#183c63;font:inherit}
+.period-comparison-form button {min-height:38px;padding:9px 13px;border:0;border-radius:6px;background:#1664ac;color:#fff;font:600 11px Arial,sans-serif;cursor:pointer}
+.period-comparison-results {display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-top:14px}
+.period-comparison-results div {display:grid;gap:4px;color:#54748e;font-size:11px}
+.period-comparison-results div strong {color:#183c63;font-size:16px}
+.period-comparison-results p {grid-column:1/-1;margin:3px 0 0;color:#54748e;font-size:12px}
+.period-comparison-results p strong {color:#087e65}
+.assignment-results {max-height:380px;overflow-y:auto;padding-right:8px;overscroll-behavior:contain}
+.assignment-results li {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 16px;align-items:center}
+.assignment-results li>strong {color:#183c63;font-size:13px}
+.assignment-results li>span,.assignment-results li>small {grid-column:1;}
+.assignment-results li>.assignment-grade {grid-column:2;grid-row:1/3;padding:7px 10px;border-radius:7px;background:#e6f6ee;color:#087e65;font-size:13px;white-space:nowrap}
 .bar-chart {
     height: 116px;
     display: flex;
@@ -2226,4 +2259,10 @@ body.dashboard-navigation .topbar .notification-panel p {
     border-radius: 9px;
     background: #fff;
     box-shadow: 0 3px 10px #12364c08;
+}
+@media (max-width: 760px) {
+    .period-comparison-form {grid-template-columns:1fr}
+    .period-comparison-form button {justify-self:start}
+    .period-comparison-results {grid-template-columns:1fr}
+    .period-comparison-results p {grid-column:auto}
 }

@@ -30,7 +30,34 @@ class DocentController extends Controller
 
     private function done(string $section, array $query = []): RedirectResponse
     {
+        $dashboardRole = request()->input('dashboard_role', request()->query('dashboard_role'));
+        if (is_string($dashboardRole)) {
+            $query['dashboard_role'] = $dashboardRole;
+        }
+
         return redirect()->to(route('dashboard', $query).'#'.$section)->with('docent_success', 'Wijzigingen opgeslagen.');
+    }
+
+    /** Resolve a visible student account ID, even when guidance uses student profile IDs. */
+    private function visibleStudentAccount(Request $request, int $memberId): array
+    {
+        $assignedIds = app(DocentDashboard::class)->studentIds($request->user());
+        $profile = Schema::hasTable('student')
+            && Schema::hasColumn('student', 'idstudent')
+            && Schema::hasColumn('student', 'lid_idlid')
+            ? DB::table('student')->where('lid_idlid', $memberId)->first(['idstudent', 'lid_idlid'])
+            : null;
+
+        abort_unless(
+            $assignedIds->contains($memberId)
+                || ($profile && $assignedIds->contains($profile->idstudent)),
+            403,
+        );
+
+        return [
+            'member_id' => $memberId,
+            'selection_id' => Schema::hasTable('coach') && $profile ? (int) $profile->idstudent : $memberId,
+        ];
     }
 
     /** Oude formulieren mogen de centrale accountadministratie niet omzeilen. */
@@ -290,5 +317,50 @@ class DocentController extends Controller
         $query->update($data + ['laatste_update' => now(), 'vooruitgang' => $data['status'] === 'Behaald' ? 100 : null]);
 
         return $this->done('student-detail', ['student' => $record->student_idstudent]);
+    }
+
+    public function storeAssignmentResult(Request $request, int $student): RedirectResponse
+    {
+        $studentIds = $this->visibleStudentAccount($request, $student);
+        $data = $request->validate($this->assignmentResultRules());
+        $data['lid_idlid'] = $studentIds['member_id'];
+        $data['aangemaakt_door'] = $request->user()->getKey();
+        $data['created_at'] = now();
+        $data['updated_at'] = now();
+        DB::table('opdracht_resultaten')->insert($data);
+
+        return $this->done('student-detail', ['student' => $studentIds['selection_id']]);
+    }
+
+    public function updateAssignmentResult(Request $request, int $student, int $result): RedirectResponse
+    {
+        $studentIds = $this->visibleStudentAccount($request, $student);
+        $data = $request->validate($this->assignmentResultRules());
+        $query = DB::table('opdracht_resultaten')->where('idopdracht_resultaat', $result)
+            ->where('lid_idlid', $studentIds['member_id']);
+        abort_unless($query->exists(), 404);
+        $query->update($data + ['updated_at' => now()]);
+
+        return $this->done('student-detail', ['student' => $studentIds['selection_id']]);
+    }
+
+    public function deleteAssignmentResult(Request $request, int $student, int $result): RedirectResponse
+    {
+        $studentIds = $this->visibleStudentAccount($request, $student);
+        $deleted = DB::table('opdracht_resultaten')->where('idopdracht_resultaat', $result)
+            ->where('lid_idlid', $studentIds['member_id'])->delete();
+        abort_unless($deleted === 1, 404);
+
+        return $this->done('student-detail', ['student' => $studentIds['selection_id']]);
+    }
+
+    private function assignmentResultRules(): array
+    {
+        return [
+            'opdracht' => ['required', 'string', 'max:150'],
+            'cijfer' => ['required', 'numeric', 'between:1,10', 'decimal:0,1'],
+            'datum' => ['required', 'date', 'before_or_equal:today'],
+            'opmerking' => ['nullable', 'string', 'max:2000'],
+        ];
     }
 }

@@ -36,9 +36,9 @@
             'student' => [
                 ['⌂', 'Dashboard', 'all'],
                 ['◉', 'Mijn ontwikkeling', 'ontwikkeling'],
-                ['◷', 'Uren & resultaten', 'uren'],
+                ['◷', 'Uren', 'uren'],
                 ['◇', 'Mijn leerdoelen', 'leerdoelen'],
-                ['◎', 'Mijn resultaten', 'resultaten'],
+                ['◎', 'Resultaten', 'resultaten'],
                 ['▤', 'Reflecties', 'reflecties'],
                 ['☷', 'Gesprekken', 'gesprekken'],
                 ['▤', 'Notities', 'notities'],

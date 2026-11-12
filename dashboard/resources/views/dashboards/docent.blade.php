@@ -307,6 +307,7 @@
                     $selectedProgress = $selectedOutcomeCount > 0
                         ? (int) round($selectedAchievedCount / $selectedOutcomeCount * 100)
                         : 0;
+                    $selectedMemberId = $selected->member_id ?? $selected->lid_idlid ?? $selected->idstudent;
                 @endphp
                 <section class="card detail" id="student-detail">
                     <div class="section-heading">
@@ -368,6 +369,51 @@
                             </article>
                         @empty
                             <p class="empty">Voor deze student zijn nog geen leeruitkomsten vastgelegd.</p>
+                        @endforelse
+                    </div>
+                    <h3 class="dossier-section-title">Opdrachtresultaten</h3>
+                    <details class="edit-panel" @if(old('_form') === 'assignment-result-new') open @endif>
+                        <summary>+ Opdrachtcijfer toevoegen</summary>
+                        <form class="docent-form" method="POST" action="{{ route('docent.results.store', $selectedMemberId) }}">
+                            @csrf
+                            @if($roleKey)<input type="hidden" name="dashboard_role" value="{{ $roleKey }}">@endif
+                            <input type="hidden" name="_form" value="assignment-result-new">
+                            <label>Opdracht<input name="opdracht" maxlength="150" required placeholder="Bijvoorbeeld: Presentatie hoofdstuk 2"></label>
+                            <div class="docent-form-row">
+                                <label>Datum<input type="date" name="datum" max="{{ today()->toDateString() }}" required value="{{ old('_form') === 'assignment-result-new' ? old('datum') : today()->toDateString() }}"></label>
+                                <label>Cijfer (1–10)<input type="number" name="cijfer" min="1" max="10" step="0.1" required value="{{ old('_form') === 'assignment-result-new' ? old('cijfer') : '' }}" placeholder="Bijv. 7.5"></label>
+                            </div>
+                            <label>Feedback (optioneel)<textarea name="opmerking" maxlength="2000" rows="2">{{ old('_form') === 'assignment-result-new' ? old('opmerking') : '' }}</textarea></label>
+                            <button class="button dark" type="submit">Cijfer opslaan</button>
+                        </form>
+                    </details>
+                    <div class="dossier-result-list" role="region" aria-label="Opdrachtresultaten van {{ $selected->voornaam }}" tabindex="0">
+                        @forelse($assignmentResults as $result)
+                            <article class="dossier-result">
+                                <div><strong>{{ $result->opdracht }}</strong><span>{{ number_format((float) $result->cijfer, 1, ',', '.') }} / 10 · {{ \Illuminate\Support\Carbon::parse($result->datum)->format('d-m-Y') }}</span>
+                                    @if($result->opmerking)<small>{{ $result->opmerking }}</small>@endif
+                                </div>
+                                <details class="edit-panel">
+                                    <summary>Wijzigen of verwijderen</summary>
+                                    <form class="docent-form" method="POST" action="{{ route('docent.results.update', ['student' => $selectedMemberId, 'result' => $result->idopdracht_resultaat]) }}">
+                                        @csrf
+                                        @method('PUT')
+                                        @if($roleKey)<input type="hidden" name="dashboard_role" value="{{ $roleKey }}">@endif
+                                        <label>Opdracht<input name="opdracht" maxlength="150" required value="{{ $result->opdracht }}"></label>
+                                        <div class="docent-form-row"><label>Datum<input type="date" name="datum" max="{{ today()->toDateString() }}" required value="{{ $result->datum }}"></label><label>Cijfer (1–10)<input type="number" name="cijfer" min="1" max="10" step="0.1" required value="{{ $result->cijfer }}"></label></div>
+                                        <label>Feedback (optioneel)<textarea name="opmerking" maxlength="2000" rows="2">{{ $result->opmerking }}</textarea></label>
+                                        <button class="button secondary" type="submit">Wijzigingen opslaan</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('docent.results.destroy', ['student' => $selectedMemberId, 'result' => $result->idopdracht_resultaat]) }}" onsubmit="return confirm('Weet je zeker dat je dit opdrachtresultaat wilt verwijderen?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        @if($roleKey)<input type="hidden" name="dashboard_role" value="{{ $roleKey }}">@endif
+                                        <button class="danger" type="submit">Verwijderen</button>
+                                    </form>
+                                </details>
+                            </article>
+                        @empty
+                            <p class="empty">Er zijn nog geen opdrachtcijfers geregistreerd.</p>
                         @endforelse
                     </div>
                 </section>

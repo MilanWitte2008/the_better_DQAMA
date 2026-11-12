@@ -71,4 +71,9 @@ Route::middleware('auth')->prefix('docent')->name('docent.')->controller(DocentC
     Route::put('/gesprekaanvragen/{aanvraag}/goedkeuren', 'approveMeetingRequest')->whereNumber('aanvraag')->name('meeting-requests.approve');
     Route::put('/gesprekaanvragen/{aanvraag}/afkeuren', 'rejectMeetingRequest')->whereNumber('aanvraag')->name('meeting-requests.reject');
     Route::put('/leeruitkomsten/{outcome}', 'updateOutcome')->whereNumber('outcome')->name('outcomes.update');
+    Route::post('/studenten/{student}/resultaten', 'storeAssignmentResult')->whereNumber('student')->name('results.store');
+    Route::put('/studenten/{student}/resultaten/{result}', 'updateAssignmentResult')
+        ->whereNumber('student')->whereNumber('result')->name('results.update');
+    Route::delete('/studenten/{student}/resultaten/{result}', 'deleteAssignmentResult')
+        ->whereNumber('student')->whereNumber('result')->name('results.destroy');
 });
