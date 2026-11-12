@@ -270,24 +270,40 @@
                             ×</a>
                     </div>
                     <dl class="student-facts">
-                        <div><dt>Studentnummer</dt><dd>{{ $selected->studentnummer ?: 'Niet bekend' }}</dd></div>
-                        <div><dt>Klas</dt><dd>{{ $selected->klas ?: 'Geen klas' }}</dd></div>
-                        <div><dt>Opleiding</dt><dd>{{ $selected->opleiding ?: 'Geen opleiding' }}</dd></div>
-                        <div><dt>E-mailadres</dt><dd>{{ $selected->email ?: 'Niet bekend' }}</dd></div>
+                            @if ($selected->studentnummer)
+                                <div><dt>Studentnummer</dt><dd>{{ $selected->studentnummer }}</dd></div>
+                            @endif
+                            @if ($selected->klas)
+                                <div><dt>Klas</dt><dd>{{ $selected->klas }}</dd></div>
+                            @endif
+                            @if ($selected->opleiding)
+                                <div><dt>Opleiding</dt><dd>{{ $selected->opleiding }}</dd></div>
+                            @endif
+                            @if ($selected->email)
+                                <div><dt>E-mailadres</dt><dd>{{ $selected->email }}</dd></div>
+                            @endif
                     </dl>
                     <h3 class="dossier-section-title">Leeruitkomsten</h3>
                     <div class="dossier-outcomes">
                         @forelse($outcomes->where('student_idstudent', $selected->idstudent) as $outcome)
                             <article class="dossier-outcome">
                                 <div class="dossier-outcome-main">
-                                    <small>{{ $outcome->code }}</small>
+                                        @if ($outcome->fase_naam)<small>{{ $outcome->fase_naam }}</small>@endif
+                                        @if ($outcome->code)<small>{{ $outcome->code }}</small>@endif
                                     <h4>{{ $outcome->titel }}</h4>
+                                        @if ($outcome->omschrijving)
+                                            <p class="preserve">{{ $outcome->omschrijving }}</p>
+                                        @endif
                                     @if($outcome->opmerking)
                                         <p class="preserve">{{ $outcome->opmerking }}</p>
                                     @endif
                                 </div>
-                                <span @class(['pill', 'dossier-status', 'dossier-status-done' => strtolower($outcome->status ?? '') === 'behaald', 'dossier-status-active' => strtolower($outcome->status ?? '') === 'bezig'])>{{ $outcome->status ?: 'Geen status' }}</span>
-                                <div class="dossier-updated"><span>Bijgewerkt</span><time>{{ $dateLabel($outcome->laatste_update) }}</time></div>
+                                    @if ($outcome->status)
+                                        <span @class(['pill', 'dossier-status', 'dossier-status-done' => strtolower($outcome->status) === 'behaald', 'dossier-status-active' => strtolower($outcome->status) === 'bezig'])>{{ $outcome->status }}</span>
+                                    @endif
+                                    @if ($outcome->laatste_update)
+                                        <div class="dossier-updated"><span>Bijgewerkt</span><time>{{ $dateLabel($outcome->laatste_update) }}</time></div>
+                                    @endif
                             </article>
                         @empty
                             <p class="empty">Voor deze student zijn nog geen leeruitkomsten vastgelegd.</p>

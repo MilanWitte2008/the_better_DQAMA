@@ -300,12 +300,18 @@ class DocentDashboardTest extends TestCase
         DB::statement('CREATE TABLE begeleidingsnotitie (id_notitie INTEGER PRIMARY KEY AUTOINCREMENT, inhoud TEXT, datum TEXT, type TEXT, lid_idlid INTEGER)');
         DB::statement('CREATE TABLE gesprekken (idgesprek INTEGER PRIMARY KEY AUTOINCREMENT, datum TEXT, onderwerp TEXT, inhoud TEXT, afspraken TEXT)');
         DB::statement('CREATE TABLE gesprekken_has_lid (gesprekken_idgesprek INTEGER, lid_idlid INTEGER)');
+        DB::statement('CREATE TABLE leeruitkomsten_has_lid (leeruitkomsten_id INTEGER, lid_idlid INTEGER, status TEXT)');
         DB::table('groep')->insert(['idgroep' => 1, 'groepnaam' => 'ICT 2A', 'status' => 'actief']);
         DB::table('groep_has_lid')->insert([
             ['idgroep' => 1, 'idlid' => 1],
             ['idgroep' => 1, 'idlid' => 11],
             ['idgroep' => 1, 'idlid' => 12],
         ]);
+        DB::table('leeruitkomsten_has_lid')->insert([
+            ['leeruitkomsten_id' => 1, 'lid_idlid' => 11, 'status' => 'Behaald'],
+            ['leeruitkomsten_id' => 2, 'lid_idlid' => 11, 'status' => 'Bezig'],
+        ]);
+        DB::table('leeruitkomsten')->where('leeruitkomsten_id', 1)->update(['omschrijving' => 'Samenwerken met de klas.']);
         DB::table('begeleidingsnotitie')->insert([
             ['lid_idlid' => 11, 'inhoud' => 'Bestaande klasnotitie', 'datum' => '2026-11-03 10:00:00', 'type' => 'gesprek'],
             ['lid_idlid' => 0, 'inhoud' => 'Niet gekoppelde notitie', 'datum' => '2026-11-03 10:00:00', 'type' => 'gesprek'],
@@ -322,6 +328,27 @@ class DocentDashboardTest extends TestCase
             ->assertDontSee('Niet gekoppeld oud gesprek')
             ->assertSee('+ Gesprek plannen')
             ->assertSee('+ Notitie toevoegen');
+
+        $this->actingAs(User::findOrFail(1))->get('/dashboard?student=11')
+            ->assertOk()
+            ->assertSee('STUDENTDOSSIER')
+            ->assertSee('Ada Voorbeeld')
+            ->assertSee('ICT 2A')
+            ->assertSee('11@example.test')
+            ->assertSee('Samenwerken')
+            ->assertSee('Samenwerken met de klas.')
+            ->assertSee('Programmeren')
+            ->assertSee('Behaald')
+            ->assertSee('Bezig')
+            ->assertSee('--progress: 50%', false)
+            ->assertDontSee('Studentnummer')
+            ->assertDontSee('Opleiding')
+            ->assertDontSee('Niet bekend')
+            ->assertDontSee('Deze student is niet beschikbaar binnen jouw huidige begeleiding.');
+        $this->get('/dashboard?student=13')
+            ->assertOk()
+            ->assertSee('Deze student is niet beschikbaar binnen jouw huidige begeleiding.')
+            ->assertDontSee('Privé Voorbeeld');
 
         $this->post('/docent/notities', [
             'idstudent' => 11,
