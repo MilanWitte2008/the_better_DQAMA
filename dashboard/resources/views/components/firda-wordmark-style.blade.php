@@ -7,8 +7,8 @@
 .firda-wordmark-shape {
     display:inline-block;width:2.868421em;height:1em;max-width:100%;vertical-align:middle;
     background:currentColor;
-    -webkit-mask:url('/images/landing/firda-wordmark.svg') center / contain no-repeat;
-    mask:url('/images/landing/firda-wordmark.svg') center / contain no-repeat;
+    -webkit-mask:url('{{ asset('images/landing/firda-wordmark.svg') }}') center / contain no-repeat;
+    mask:url('{{ asset('images/landing/firda-wordmark.svg') }}') center / contain no-repeat;
 }
 .firda-header {color:#fff;font-size:46px;}
 .firda-preview {color:#fff;font-size:32px;}

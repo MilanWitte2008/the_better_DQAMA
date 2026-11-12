@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\StudentDashboard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -11,14 +12,16 @@ class DashboardController extends Controller
     /**
      * Kies het juiste dashboard voor de ingelogde gebruiker.
      */
-    public function index(Request $request)
+    public function index(Request $request, StudentDashboard $studentDashboard)
     {
         // Haal de ingelogde gebruiker en diens rol op.
         $user = $request->user()->load('rol');
-        $roleKey = $user->dashboardRoleKey();
+        $availableRoleKeys = $user->dashboardRoleKeys();
+        $roleKey = $request->query('dashboard_role', $user->dashboardRoleKey());
 
         // Stop als het account inactief is of geen bekende rol heeft.
-        abort_unless($roleKey && strtolower((string) $user->status) === 'actief', 403, 'Je account heeft geen geldige dashboardrol.');
+        abort_unless($roleKey && in_array($roleKey, $availableRoleKeys, true)
+            && strtolower((string) $user->status) === 'actief', 403, 'Je account heeft geen toegang tot deze dashboardrol.');
 
         // Vul ontbrekende koppelingen aan wanneer een student het dashboard opent.
         if ($roleKey === 'student'
@@ -50,10 +53,12 @@ class DashboardController extends Controller
         // Kies voor elke andere rol de juiste pagina.
         $view = match ($roleKey) {
             'student' => 'dashboards.student',
-            'docent' => 'dashboards.docent',
+            'docent', 'coach' => 'dashboards.docent',
         };
 
         // Stuur de gebruiker en de rol naar de pagina.
-        return view($view, compact('user', 'roleKey'));
+        $coaches = $roleKey === 'student' ? $studentDashboard->coachesFor($user) : collect();
+
+        return view($view, compact('user', 'roleKey', 'coaches', 'availableRoleKeys'));
     }
 }

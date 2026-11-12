@@ -74,6 +74,116 @@ class DocentDashboardTest extends TestCase
         $this->assertCount(1, $data['recent']);
     }
 
+    public function test_docent_can_approve_or_reject_only_their_own_pending_requests(): void
+    {
+        DB::statement('CREATE TABLE gesprekken_has_lid (gesprekken_idgesprek INTEGER, lid_idlid INTEGER)');
+        $firstRequest = DB::table('gesprekken')->insertGetId([
+            'student_idstudent' => 11,
+            'datum' => '2026-11-13 10:00:00',
+            'onderwerp' => DocentDashboard::MEETING_REQUEST_TOPIC,
+            'inhoud' => 'Ik wil mijn voortgang bespreken.',
+            'afspraken' => 'pending',
+        ]);
+        $olderApprovedRequest = DB::table('gesprekken')->insertGetId([
+            'student_idstudent' => 11,
+            'datum' => null,
+            'onderwerp' => DocentDashboard::MEETING_REQUEST_TOPIC,
+            'inhoud' => 'Oud verzoek zonder datum',
+            'afspraken' => 'approved',
+        ]);
+        $secondRequest = DB::table('gesprekken')->insertGetId([
+            'student_idstudent' => 13,
+            'onderwerp' => DocentDashboard::MEETING_REQUEST_TOPIC,
+            'inhoud' => 'Ik wil hulp met mijn leerdoel.',
+            'afspraken' => 'pending',
+        ]);
+        $rejectedRequest = DB::table('gesprekken')->insertGetId([
+            'student_idstudent' => 11,
+            'onderwerp' => DocentDashboard::MEETING_REQUEST_TOPIC,
+            'inhoud' => 'Deze afgekeurde aanvraag mag niet in de lijst staan.',
+            'afspraken' => 'rejected',
+        ]);
+        DB::table('gesprekken_has_lid')->insert([
+            ['gesprekken_idgesprek' => $firstRequest, 'lid_idlid' => 11],
+            ['gesprekken_idgesprek' => $firstRequest, 'lid_idlid' => 1],
+            ['gesprekken_idgesprek' => $olderApprovedRequest, 'lid_idlid' => 11],
+            ['gesprekken_idgesprek' => $olderApprovedRequest, 'lid_idlid' => 1],
+            ['gesprekken_idgesprek' => $secondRequest, 'lid_idlid' => 13],
+            ['gesprekken_idgesprek' => $secondRequest, 'lid_idlid' => 2],
+            ['gesprekken_idgesprek' => $rejectedRequest, 'lid_idlid' => 11],
+            ['gesprekken_idgesprek' => $rejectedRequest, 'lid_idlid' => 1],
+        ]);
+
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Coachgesprekken')
+            ->assertSee('Ada Voorbeeld')
+            ->assertSee('Ik wil mijn voortgang bespreken.')
+            ->assertSee('Oud verzoek zonder datum')
+            ->assertSee('Geen datum opgegeven')
+            ->assertSee('Goedgekeurd')
+            ->assertDontSee('Deze afgekeurde aanvraag mag niet in de lijst staan.')
+            ->assertDontSee('Ik wil hulp met mijn leerdoel.')
+            ->assertSee('13-11-2026 10:00')
+            ->assertDontSee('<h3>Gespreksaanvragen</h3>', false);
+
+        $this->put('/docent/gesprekaanvragen/'.$firstRequest.'/goedkeuren')
+            ->assertRedirect('/dashboard?aanvragen=verwerkt#gesprekken');
+        $this->assertDatabaseHas('gesprekken', ['idgesprek' => $firstRequest, 'afspraken' => 'approved']);
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Goedgekeurd')
+            ->assertSee('13-11-2026 10:00')
+            ->assertSee('Gespreksaanvraag')
+            ->assertSee('Volgende stap')
+            ->assertDontSee('<h3>Gespreksaanvragen</h3>', false);
+        $this->put('/docent/gesprekaanvragen/'.$secondRequest.'/afkeuren')->assertNotFound();
+
+        $this->actingAs(User::findOrFail(2))
+            ->put('/docent/gesprekaanvragen/'.$secondRequest.'/afkeuren')
+            ->assertRedirect('/dashboard?aanvragen=verwerkt#gesprekken');
+        $this->assertDatabaseHas('gesprekken', ['idgesprek' => $secondRequest, 'afspraken' => 'rejected']);
+
+        $this->actingAs(User::findOrFail(11))
+            ->put('/docent/gesprekaanvragen/'.$firstRequest.'/afkeuren')
+            ->assertForbidden();
+    }
+
+    public function test_docent_sees_and_can_approve_requests_sent_directly_to_them_without_a_class_assignment(): void
+    {
+        Schema::drop('student_coach');
+        Schema::drop('student');
+        Schema::drop('coach');
+        DB::statement('CREATE TABLE groep (idgroep INTEGER PRIMARY KEY, groepnaam TEXT, status TEXT)');
+        DB::statement('CREATE TABLE groep_has_lid (idgroep INTEGER, idlid INTEGER)');
+        DB::statement('CREATE TABLE gesprekken_has_lid (gesprekken_idgesprek INTEGER, lid_idlid INTEGER)');
+        DB::table('groep')->insert(['idgroep' => 1, 'groepnaam' => 'Alle leden', 'status' => null]);
+        DB::table('groep_has_lid')->insert([
+            ['idgroep' => 1, 'idlid' => 1],
+            ['idgroep' => 1, 'idlid' => 11],
+        ]);
+        $request = DB::table('gesprekken')->insertGetId([
+            'datum' => '2026-11-13 10:00:00',
+            'onderwerp' => DocentDashboard::MEETING_REQUEST_TOPIC,
+            'inhoud' => 'Mijn aanvraag aan deze docent.',
+            'afspraken' => 'pending',
+        ]);
+        DB::table('gesprekken_has_lid')->insert([
+            ['gesprekken_idgesprek' => $request, 'lid_idlid' => 11],
+            ['gesprekken_idgesprek' => $request, 'lid_idlid' => 1],
+        ]);
+
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Ada Voorbeeld')
+            ->assertSee('Mijn aanvraag aan deze docent.')
+            ->assertSee('Aangevraagd');
+
+        $this->put('/docent/gesprekaanvragen/'.$request.'/goedkeuren')
+            ->assertRedirect('/dashboard?aanvragen=verwerkt#gesprekken');
+        $this->assertDatabaseHas('gesprekken', ['idgesprek' => $request, 'afspraken' => 'approved']);
+    }
+
     public function test_search_class_attention_and_detail_cannot_expand_access(): void
     {
         $service = app(DocentDashboard::class);
@@ -88,10 +198,70 @@ class DocentDashboardTest extends TestCase
         $this->assertCount(2, $data['filtered']);
     }
 
+    public function test_docent_can_see_their_active_class_beside_the_student_list(): void
+    {
+        DB::statement('CREATE TABLE groep (idgroep INTEGER PRIMARY KEY, groepnaam TEXT, status TEXT)');
+        DB::statement('CREATE TABLE groep_has_lid (idgroep INTEGER, idlid INTEGER)');
+        DB::table('groep')->insert([
+            ['idgroep' => 1, 'groepnaam' => 'Alle leden', 'status' => null],
+            ['idgroep' => 2, 'groepnaam' => 'ICT 2A', 'status' => 'actief'],
+            ['idgroep' => 3, 'groepnaam' => 'ICT 2B', 'status' => 'inactief'],
+        ]);
+        DB::table('groep_has_lid')->insert([
+            ['idgroep' => 1, 'idlid' => 1],
+            ['idgroep' => 2, 'idlid' => 1],
+            ['idgroep' => 2, 'idlid' => 13],
+            ['idgroep' => 3, 'idlid' => 1],
+            ['idgroep' => 2, 'idlid' => 2],
+        ]);
+
+        $data = app(DocentDashboard::class)->data(User::findOrFail(1), Request::create('/dashboard'));
+
+        $this->assertSame(['ICT 2A'], $data['teacherGroups']->pluck('groepnaam')->all());
+        $this->assertSame([11, 12, 13], $data['students']->pluck('idstudent')->sort()->values()->all());
+        $this->assertSame(3, $data['studentCount']);
+        $this->assertSame(['ICT 2A', 'SD2A', 'SD2B'], $data['classes']->values()->all());
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Jouw klas')
+            ->assertSee('ICT 2A')
+            ->assertSee('Privé Voorbeeld')
+            ->assertDontSee('ICT 2B')
+            ->assertDontSee('Alle leden');
+    }
+
+    public function test_teacher_group_roster_is_visible_without_student_profile_tables(): void
+    {
+        DB::statement('CREATE TABLE groep (idgroep INTEGER PRIMARY KEY, groepnaam TEXT, status TEXT)');
+        DB::statement('CREATE TABLE groep_has_lid (idgroep INTEGER, idlid INTEGER)');
+        DB::table('groep')->insert(['idgroep' => 1, 'groepnaam' => 'ICT 2A', 'status' => 'actief']);
+        DB::table('groep_has_lid')->insert([
+            ['idgroep' => 1, 'idlid' => 1],
+            ['idgroep' => 1, 'idlid' => 11],
+            ['idgroep' => 1, 'idlid' => 12],
+        ]);
+        Schema::drop('coach');
+        Schema::drop('student');
+
+        $data = app(DocentDashboard::class)->data(User::findOrFail(1), Request::create('/dashboard'));
+        $this->assertSame(['Ada', 'Bram'], $data['visibleGroupStudents']->pluck('voornaam')->all());
+        $this->assertSame(2, $data['studentCount']);
+
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('ICT 2A')
+            ->assertSee('<h2>Mijn studenten <span class="count">2</span></h2>', false)
+            ->assertSee('<strong>2</strong>', false)
+            ->assertSee('Ada')
+            ->assertSee('Bram');
+    }
+
     public function test_dashboard_renders_escaped_records_and_student_detail(): void
     {
         $response = $this->actingAs(User::findOrFail(1))->get('/dashboard?student=11');
         $response->assertOk()->assertSee('Samenwerken')->assertSee('Volgende stap')->assertSee('Kennismaking')
+            ->assertSee('Gesprek bewerken')
+            ->assertDontSee("@include('dashboards.docent-meeting-edit')")
             ->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false)
             ->assertDontSee('<script>alert(1)</script>', false)->assertDontSee('Verborgen notitie')->assertDontSee('Andere auteur')->assertDontSee('Geheim gesprek');
         if (getenv('DOCENT_PREVIEW')) {
@@ -102,7 +272,7 @@ class DocentDashboardTest extends TestCase
     public function test_missing_coach_profile_and_empty_results_have_honest_states(): void
     {
         DB::table('coach')->where('lid_idlid', 1)->delete();
-        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('nog geen coachprofiel')->assertSee('Nog geen studenten gekoppeld');
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')->assertOk()->assertSee('nog geen coachprofiel')->assertSee('Nog geen leerlingen gekoppeld');
     }
 
     public function test_missing_coach_table_does_not_break_the_dashboard_or_student_creation(): void
@@ -112,9 +282,155 @@ class DocentDashboardTest extends TestCase
         $this->actingAs(User::findOrFail(1))->get('/dashboard')
             ->assertOk()
             ->assertSee('nog geen coachprofiel')
-            ->assertSee('Nog geen studenten gekoppeld');
+            ->assertSee('Nog geen leerlingen gekoppeld');
 
         $this->post('/docent/studenten', [])->assertForbidden();
+    }
+
+    public function test_legacy_notes_and_meetings_work_for_students_in_the_docents_groups(): void
+    {
+        Schema::drop('student_coach');
+        Schema::drop('student');
+        Schema::drop('coach');
+        Schema::drop('begeleidingsnotitie');
+        Schema::drop('gesprekken');
+
+        DB::statement('CREATE TABLE groep (idgroep INTEGER PRIMARY KEY, groepnaam TEXT, status TEXT)');
+        DB::statement('CREATE TABLE groep_has_lid (idgroep INTEGER, idlid INTEGER)');
+        DB::statement('CREATE TABLE begeleidingsnotitie (id_notitie INTEGER PRIMARY KEY AUTOINCREMENT, inhoud TEXT, datum TEXT, type TEXT, lid_idlid INTEGER)');
+        DB::statement('CREATE TABLE gesprekken (idgesprek INTEGER PRIMARY KEY AUTOINCREMENT, datum TEXT, onderwerp TEXT, inhoud TEXT, afspraken TEXT)');
+        DB::statement('CREATE TABLE gesprekken_has_lid (gesprekken_idgesprek INTEGER, lid_idlid INTEGER)');
+        DB::statement('CREATE TABLE leeruitkomsten_has_lid (leeruitkomsten_id INTEGER, lid_idlid INTEGER, status TEXT)');
+        DB::table('groep')->insert(['idgroep' => 1, 'groepnaam' => 'ICT 2A', 'status' => 'actief']);
+        DB::table('groep_has_lid')->insert([
+            ['idgroep' => 1, 'idlid' => 1],
+            ['idgroep' => 1, 'idlid' => 11],
+            ['idgroep' => 1, 'idlid' => 12],
+        ]);
+        DB::table('leeruitkomsten_has_lid')->insert([
+            ['leeruitkomsten_id' => 1, 'lid_idlid' => 11, 'status' => 'Behaald'],
+            ['leeruitkomsten_id' => 2, 'lid_idlid' => 11, 'status' => 'Bezig'],
+        ]);
+        DB::table('leeruitkomsten')->where('leeruitkomsten_id', 1)->update(['omschrijving' => 'Samenwerken met de klas.']);
+        DB::table('begeleidingsnotitie')->insert([
+            ['lid_idlid' => 11, 'inhoud' => 'Bestaande klasnotitie', 'datum' => '2026-11-03 10:00:00', 'type' => 'gesprek'],
+            ['lid_idlid' => 0, 'inhoud' => 'Niet gekoppelde notitie', 'datum' => '2026-11-03 10:00:00', 'type' => 'gesprek'],
+        ]);
+        DB::table('gesprekken')->insert([
+            'datum' => '2026-11-05 10:00:00',
+            'onderwerp' => 'Niet gekoppeld oud gesprek',
+        ]);
+
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Bestaande klasnotitie')
+            ->assertDontSee('Niet gekoppelde notitie')
+            ->assertDontSee('Niet gekoppeld oud gesprek')
+            ->assertSee('+ Gesprek plannen')
+            ->assertSee('+ Notitie toevoegen')
+            ->assertSee('1/2 behaald')
+            ->assertSee('aria-label="Bekijk Ada Voorbeeld"', false);
+
+        $this->actingAs(User::findOrFail(1))->get('/dashboard?student=11')
+            ->assertOk()
+            ->assertSee('STUDENTDOSSIER')
+            ->assertSee('Ada Voorbeeld')
+            ->assertSee('ICT 2A')
+            ->assertSee('1/2 leeruitkomsten behaald')
+            ->assertSee('11@example.test')
+            ->assertSee('Samenwerken')
+            ->assertSee('Samenwerken met de klas.')
+            ->assertSee('Programmeren')
+            ->assertSee('Behaald')
+            ->assertSee('Bezig')
+            ->assertSee('--progress: 50%', false)
+            ->assertDontSee('Studentnummer')
+            ->assertDontSee('Opleiding')
+            ->assertDontSee('Niet bekend')
+            ->assertDontSee('Deze student is niet beschikbaar binnen jouw huidige begeleiding.');
+        $this->get('/dashboard?student=13')
+            ->assertOk()
+            ->assertSee('Deze student is niet beschikbaar binnen jouw huidige begeleiding.')
+            ->assertDontSee('Privé Voorbeeld');
+
+        $this->post('/docent/notities', [
+            'idstudent' => 11,
+            'type' => 'Notitie',
+            'inhoud' => 'Nieuwe legacy notitie',
+        ])->assertRedirect('/dashboard#notities');
+        $note = DB::table('begeleidingsnotitie')->where('inhoud', 'Nieuwe legacy notitie')->first();
+        $this->assertSame(11, $note->lid_idlid);
+        $this->put('/docent/notities/'.$note->id_notitie, ['type' => 'Afspraak', 'inhoud' => 'Aangepaste legacy notitie'])->assertRedirect();
+        $this->assertDatabaseHas('begeleidingsnotitie', ['id_notitie' => $note->id_notitie, 'inhoud' => 'Aangepaste legacy notitie']);
+        $this->delete('/docent/notities/'.$note->id_notitie)->assertRedirect();
+        $this->assertDatabaseMissing('begeleidingsnotitie', ['id_notitie' => $note->id_notitie]);
+
+        $meetingInput = [
+            'student_idstudent' => 11,
+            'onderwerp' => 'Legacy coachgesprek',
+            'datum' => '2026-11-10T10:30',
+            'inhoud' => 'Gespreksverslag',
+            'afspraken' => 'Vervolgafspraak',
+        ];
+        $this->post('/docent/gesprekken', $meetingInput)->assertRedirect('/dashboard#gesprekken');
+        $meetingId = DB::table('gesprekken')->where('onderwerp', 'Legacy coachgesprek')->value('idgesprek');
+        $this->assertDatabaseHas('gesprekken_has_lid', ['gesprekken_idgesprek' => $meetingId, 'lid_idlid' => 1]);
+        $this->assertDatabaseHas('gesprekken_has_lid', ['gesprekken_idgesprek' => $meetingId, 'lid_idlid' => 11]);
+        $this->put('/docent/gesprekken/'.$meetingId, array_replace($meetingInput, ['onderwerp' => 'Verplaatst legacy gesprek']))->assertRedirect();
+        $this->assertDatabaseHas('gesprekken', ['idgesprek' => $meetingId, 'onderwerp' => 'Verplaatst legacy gesprek']);
+        $this->delete('/docent/gesprekken/'.$meetingId)->assertRedirect();
+        $this->assertDatabaseMissing('gesprekken', ['idgesprek' => $meetingId]);
+        $this->assertDatabaseMissing('gesprekken_has_lid', ['gesprekken_idgesprek' => $meetingId]);
+
+        $this->post('/docent/notities', ['idstudent' => 13, 'type' => 'Notitie', 'inhoud' => 'Buiten de klas'])->assertForbidden();
+    }
+
+    public function test_student_sees_only_their_legacy_linked_coach_conversations(): void
+    {
+        DB::statement('CREATE TABLE leeruitkomsten_has_lid (leeruitkomsten_id INTEGER, lid_idlid INTEGER, status TEXT)');
+        DB::statement('CREATE TABLE fase (idfase INTEGER PRIMARY KEY, naam TEXT, volgorde INTEGER)');
+        DB::statement('ALTER TABLE leeruitkomsten ADD COLUMN fase_idfase INTEGER');
+        DB::statement('CREATE TABLE urenregistratie (idurenregistratie INTEGER PRIMARY KEY AUTOINCREMENT, datum TEXT, omschrijving TEXT, uren REAL, status TEXT, aangemaakt_op TEXT, lid_id INTEGER)');
+        DB::statement('CREATE TABLE reflectie (idreflectie INTEGER PRIMARY KEY AUTOINCREMENT, inhoud TEXT, datum TEXT, fase_idfase INTEGER, lid_idlid INTEGER)');
+        Schema::drop('gesprekken');
+        Schema::drop('begeleidingsnotitie');
+        DB::statement('CREATE TABLE gesprekken (idgesprek INTEGER PRIMARY KEY AUTOINCREMENT, datum TEXT, onderwerp TEXT, inhoud TEXT, afspraken TEXT)');
+        DB::statement('CREATE TABLE gesprekken_has_lid (gesprekken_idgesprek INTEGER, lid_idlid INTEGER)');
+        DB::statement('CREATE TABLE begeleidingsnotitie (id_notitie INTEGER PRIMARY KEY AUTOINCREMENT, inhoud TEXT, datum TEXT, type TEXT, lid_idlid INTEGER)');
+
+        DB::table('gesprekken')->insert([
+            ['datum' => '2026-11-05 10:00:00', 'onderwerp' => 'Mijn coachgesprek', 'inhoud' => 'Mijn verslag', 'afspraken' => 'Mijn afspraak'],
+            ['datum' => '2026-11-06 10:00:00', 'onderwerp' => 'Gesprek van een andere leerling', 'inhoud' => 'Privéverslag', 'afspraken' => 'Privéafspraak'],
+        ]);
+        DB::table('gesprekken_has_lid')->insert([
+            ['gesprekken_idgesprek' => 1, 'lid_idlid' => 11],
+            ['gesprekken_idgesprek' => 1, 'lid_idlid' => 1],
+            ['gesprekken_idgesprek' => 2, 'lid_idlid' => 12],
+            ['gesprekken_idgesprek' => 2, 'lid_idlid' => 1],
+        ]);
+        DB::table('begeleidingsnotitie')->insert([
+            ['lid_idlid' => 11, 'inhoud' => 'Mijn notitie', 'datum' => '2026-11-04 10:00:00', 'type' => 'Voortgang'],
+            ['lid_idlid' => 12, 'inhoud' => 'Notitie van een andere leerling', 'datum' => '2026-11-04 10:00:00', 'type' => 'Privé'],
+        ]);
+
+        DB::connection()->getPdo()->sqliteCreateFunction('FIELD', function ($value, ...$values) {
+            $position = array_search($value, $values, true);
+
+            return $position === false ? 0 : $position + 1;
+        });
+        DB::connection()->getPdo()->sqliteCreateFunction('DATE_FORMAT', fn ($date, $format) => \Illuminate\Support\Carbon::parse($date)->format(str_replace('%Y-%m', 'Y-m', $format)));
+
+        $this->actingAs(User::findOrFail(11))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Mijn coachgesprek')
+            ->assertSee('Mijn verslag')
+            ->assertSee('Mijn afspraak')
+            ->assertSee('Notities van je docent')
+            ->assertSee('Mijn notitie')
+            ->assertDontSee('Gesprek van een andere leerling')
+            ->assertDontSee('Privéverslag')
+            ->assertDontSee('Privéafspraak')
+            ->assertDontSee('Notitie van een andere leerling');
     }
 
     public function test_inactive_docent_is_forbidden_and_guests_need_login(): void
@@ -296,6 +612,8 @@ class DocentDashboardTest extends TestCase
         $xpath = new \DOMXPath($document);
         $this->assertSame(0, $xpath->query('//*[@id="student-detail"]//form | //*[@id="student-detail"]//input | //*[@id="student-detail"]//select | //*[@id="student-detail"]//textarea')->length);
         $this->assertSame(4, $xpath->query('//*[@id="student-detail"]//dl/div')->length);
+        $this->assertSame(1, $xpath->query('//*[@id="student-detail"]//div[@class="dossier-outcomes"][@role="region"][@tabindex="0"]')->length);
+        $response->assertSee('max-height:min(55vh,360px)', false)->assertSee('overflow-y:auto', false);
         $response->assertDontSee('Nieuwe leeruitkomst maken')->assertDontSee('Voortgang bewerken');
     }
 
@@ -309,7 +627,7 @@ class DocentDashboardTest extends TestCase
         $this->signInAsAdmin();
         DB::table('rol')->where('idrol', 1)->update(['naam' => 'Coach']);
         DB::table('coach')->where('lid_idlid', 1)->delete();
-        $this->get('/beheer/gebruikers/1/bewerken')->assertOk()->assertSee('Docent')->assertDontSee('>Coach<', false);
+        $this->get('/beheer/gebruikers/1/bewerken')->assertOk()->assertSee('Coach')->assertDontSee('Docent (Coach)');
         $input = ['voornaam' => 'Docent', 'achternaam' => 'Voorbeeld', 'email' => '1@example.test', 'rol_idrol' => 1, 'status' => 'actief'];
         $this->put('/beheer/gebruikers/1', $input)->assertRedirect();
         $profileId = DB::table('coach')->where('lid_idlid', 1)->value('idcoach');
@@ -321,7 +639,7 @@ class DocentDashboardTest extends TestCase
         foreach (['Coach', 'Docent'] as $name) {
             $role = new Role;
             $role->naam = $name;
-            $this->assertSame('Docent', $role->displayName());
+            $this->assertSame($name, $role->displayName());
         }
     }
 

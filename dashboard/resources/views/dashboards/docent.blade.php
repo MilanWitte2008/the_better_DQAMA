@@ -2,11 +2,9 @@
 @php
     $dashboard = app(\App\DocentDashboard::class)->data($user, request());
     extract($dashboard, EXTR_SKIP);
-    $studentOptions = $students
-        ->mapWithKeys(
-            fn($item) => [$item->idstudent => $item->voornaam . ' ' . $item->achternaam . ' · ' . $item->klas],
-        )
-        ->all();
+    $studentOptions = $students->isNotEmpty()
+        ? $students->mapWithKeys(fn($item) => [$item->idstudent => $item->voornaam . ' ' . $item->achternaam . ' · ' . $item->klas])->all()
+        : $teacherGroupStudents->mapWithKeys(fn($item) => [$item->idlid => $item->voornaam . ' ' . $item->achternaam . ' · ' . $item->groepnaam])->all();
     $dateLabel = fn($value) => $value
         ? \Illuminate\Support\Carbon::parse($value)->format('d-m-Y H:i')
         : 'Nog geen update';
@@ -17,7 +15,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Docentdashboard · Ontwikkelplatform</title>
+    <title>{{ $hasCoachRole ? 'Coachdashboard' : 'Docentdashboard' }} · Ontwikkelplatform</title>
+    <script src="{{ asset('js/dashboard-notifications.js') }}?v={{ filemtime(public_path('js/dashboard-notifications.js')) }}" defer></script>
     <style>
         @include('dashboards.docent-style') @include('components.dashboard-navigation-style')
     </style>
@@ -33,17 +32,19 @@
         <div class="profile-chip">
             <span
                 class="avatar">{{ mb_strtoupper(mb_substr($user->voornaam ?? '', 0, 1) . mb_substr($user->achternaam ?? '', 0, 1)) }}</span>
-            <span><strong>{{ $user->voornaam }} {{ $user->achternaam }}</strong><small>Docent</small></span>
+            <span><strong>{{ $user->voornaam }} {{ $user->achternaam }}</strong><small>{{ $user->rol?->displayName() ?? 'Docent' }}</small></span>
         </div>
         <nav aria-label="Hoofdnavigatie">
             <a href="#inhoud" aria-label="Overzicht">◈ <span>Overzicht</span></a>
             <a href="#studenten" aria-label="Mijn studenten">♙ <span>Mijn
-                    studenten</span><b>{{ $students->count() }}</b></a>
-            <a href="#gesprekken" aria-label="Coachgesprekken">◷ <span>Coachgesprekken</span></a>
-            <a href="#notities" aria-label="Notities">▤ <span>Notities</span></a>
+                    studenten</span><b>{{ $studentCount }}</b></a>
+            @if($hasCoachRole)
+                <a href="#gesprekken" aria-label="Coachgesprekken">◷ <span>Coachgesprekken</span></a>
+                <a href="#notities" aria-label="Notities">▤ <span>Notities</span></a>
+            @endif
             <a href="#rapportages" aria-label="Voortgang">▥ <span>Voortgang</span></a>
         </nav>
-        <div class="sidebar-footer"><strong>Docentomgeving</strong><small>Persoonlijk dashboard</small></div>
+        <div class="sidebar-footer"><strong>{{ $hasCoachRole ? 'Coachomgeving' : 'Docentomgeving' }}</strong><small>Persoonlijk dashboard</small></div>
     </aside>
     <div class="workspace">
         <header class="topbar">
@@ -53,6 +54,8 @@
                 <span id="section-title" class="sr-only">Overzicht</span>
             </div>
             <div class="topbar-actions">
+                @include('components.notification-button')
+                @include('components.dashboard-role-switcher')
                 <span
                     class="avatar avatar-light">{{ mb_strtoupper(mb_substr($user->voornaam ?? '', 0, 1) . mb_substr($user->achternaam ?? '', 0, 1)) }}</span>
                 <form method="POST" action="{{ url('/logout') }}">@csrf<button class="logout-button"
@@ -80,10 +83,10 @@
                     </ul>
                 </div>
             @endif
-            @unless ($coachLinked)
+            @if ($hasCoachRole && ! $coachLinked)
                 <div class="notice" role="status">Je account heeft nog geen coachprofiel. Vraag de beheerder om je account
                     aan een coachprofiel te koppelen.</div>
-            @endunless
+            @endif
             <section class="hero" aria-label="Samenvatting">
                 <div><span class="hero-tag">JOUW BEGELEIDING MAAKT HET VERSCHIL</span>
                     <h2>Ruimte om te groeien.<br>Aandacht voor iedereen.</h2>
@@ -97,7 +100,13 @@
                         class="art-label">Elke stap telt.</span></div>
             </section>
             <section class="metrics" aria-label="Kerncijfers">
-                @foreach ([['Mijn studenten', $students->count(), 'Actuele begeleidingskoppelingen', '♙'], ['Geplande gesprekken', $upcomingCount, 'Vanaf dit moment', '◷'], ['Behaalde leeruitkomsten', $achieved . ' / ' . $total, 'Van jouw studenten', '✓'], ['Mijn notities', $notesCount, 'Bij gekoppelde studenten', '▤']] as [$label, $value, $hint, $icon])
+                @php
+                    $dashboardMetrics = [['Studenten in mijn groepen', $studentCount, 'Actieve groepsleden', '♙'], ['Behaalde leeruitkomsten', $achieved . ' / ' . $total, 'Van studenten in mijn groepen', '✓']];
+                    if ($hasCoachRole) {
+                        $dashboardMetrics = [['Mijn studenten', $studentCount, 'Studenten in jouw begeleiding', '♙'], ['Geplande gesprekken', $upcomingCount, 'Vanaf dit moment', '◷'], ['Behaalde leeruitkomsten', $achieved . ' / ' . $total, 'Van jouw studenten', '✓'], ['Mijn notities', $notesCount, 'Bij gekoppelde studenten', '▤']];
+                    }
+                @endphp
+                @foreach ($dashboardMetrics as [$label, $value, $hint, $icon])
                     <article class="metric">
                         <div><span>{{ $label }}</span><span class="metric-icon">{{ $icon }}</span>
                         </div><strong>{{ $value }}</strong><small>{{ $hint }}</small>
@@ -109,8 +118,21 @@
                     <div class="section-heading">
                         <div>
                             <p class="eyebrow">BEGELEIDING</p>
-                            <h2>Mijn studenten <span class="count">{{ $students->count() }}</span></h2>
-                        </div><span class="live">Uit de database</span>
+                            <h2>Mijn studenten <span class="count">{{ $studentCount }}</span></h2>
+                        </div>
+                        <div class="student-group-summary">
+                            <span class="live">Uit de database</span>
+                            @if ($teacherGroups->isNotEmpty())
+                                <div class="teacher-class-list" aria-label="Jouw klas">
+                                    <span>Jouw klas{{ $teacherGroups->count() > 1 ? 'sen' : '' }}:</span>
+                                    @foreach ($teacherGroups as $group)
+                                        <span class="count">{{ $group->groepnaam ?: 'Groep ' . $group->idgroep }}</span>
+                                    @endforeach
+                                </div>
+                            @else
+                                <span class="muted teacher-class-empty">Geen klas gekoppeld</span>
+                            @endif
+                        </div>
                     </div>
                     {{-- GET-filters delen dezelfde toegangsselectie als de detailweergave. --}}
                     <form class="filters" method="GET" action="{{ route('dashboard') }}#studenten">
@@ -138,13 +160,14 @@
                             <thead>
                                 <tr>
                                     <th>Student</th>
+                                    <th>Klas</th>
                                     <th>Voortgang</th>
                                     <th>Laatste update</th>
                                     <th><span class="sr-only">Details</span></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($filtered as $student)
+                                @foreach($filtered as $student)
                                     <tr>
                                         <td>
                                             <div class="person"><span
@@ -154,6 +177,7 @@
                                                         · {{ $student->opleiding ?: 'Geen opleiding' }}</small></div>
                                             </div>
                                         </td>
+                                        <td>{{ $student->klas ?: 'Niet ingesteld' }}</td>
                                         <td>
                                             @if ($student->progress !== null)
                                                 <div class="progress-label">
@@ -173,34 +197,83 @@
                                                 aria-label="Bekijk {{ $student->voornaam }} {{ $student->achternaam }}">Bekijk ↗</a>
                                         </td>
                                     </tr>
-                                @empty<tr>
-                                        <td colspan="4">
+                                @endforeach
+                                @foreach ($visibleGroupStudents as $groupStudent)
+                                    <tr>
+                                        <td>
+                                            <div class="person"><span
+                                                    class="avatar">{{ mb_strtoupper(mb_substr($groupStudent->voornaam ?? '', 0, 1) . mb_substr($groupStudent->achternaam ?? '', 0, 1)) }}</span>
+                                                <div><strong>{{ $groupStudent->voornaam }}
+                                                        {{ $groupStudent->achternaam }}</strong><small>Leerling in {{ $groupStudent->groepnaam }}</small></div>
+                                            </div>
+                                        </td>
+                                        <td>{{ $groupStudent->groepnaam }}</td>
+                                        <td>
+                                            @if ($legacyMode)
+                                                @if ($groupStudent->progress !== null)
+                                                    <div class="progress-label">
+                                                        <span>{{ $groupStudent->achieved }}/{{ $groupStudent->total }} behaald</span>
+                                                        <b>{{ $groupStudent->progress }}%</b>
+                                                    </div>
+                                                    <progress value="{{ $groupStudent->progress }}" max="100"
+                                                        aria-label="Behaalde leeruitkomsten van {{ $groupStudent->voornaam }}">{{ $groupStudent->progress }}%</progress>
+                                                @else
+                                                    <span class="muted">Nog geen leeruitkomsten</span>
+                                                @endif
+                                            @else
+                                                <span class="muted">Nog geen voortgang beschikbaar</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($legacyMode)
+                                                @if ($groupStudent->lastUpdate)
+                                                    <small>{{ $dateLabel($groupStudent->lastUpdate) }}</small>
+                                                @endif
+                                            @else
+                                                <span class="muted">Nog geen updates</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($legacyMode)
+                                                <a class="detail-link"
+                                                    href="{{ route('dashboard', array_merge(request()->only(['q', 'klas', 'filter']), ['student' => $groupStudent->idlid])) }}#student-detail"
+                                                    aria-label="Bekijk {{ $groupStudent->voornaam }} {{ $groupStudent->achternaam }}">Bekijk ↗</a>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                                @if ($filtered->isEmpty() && $visibleGroupStudents->isEmpty())
+                                    <tr>
+                                        <td colspan="5">
                                             <div class="empty">
-                                                <strong>{{ $students->isEmpty() ? 'Nog geen studenten gekoppeld' : 'Geen studenten gevonden' }}</strong>
-                                                <p>{{ $students->isEmpty() ? 'Zodra een actieve begeleiding is vastgelegd, verschijnen je studenten hier.' : 'Pas de zoekterm of filters aan om meer studenten te zien.' }}
+                                                <strong>{{ $students->isEmpty() && $teacherGroupStudents->isEmpty() ? 'Nog geen leerlingen gekoppeld' : 'Geen leerlingen gevonden' }}</strong>
+                                                <p>{{ $students->isEmpty() && $teacherGroupStudents->isEmpty() ? 'Zodra leerlingen aan jouw klas zijn gekoppeld, verschijnen ze hier.' : 'Pas de zoekterm of filters aan om meer leerlingen te zien.' }}
                                                 </p>
                                             </div>
                                         </td>
                                     </tr>
-                                @endforelse
+                                @endif
                             </tbody>
                         </table>
                     </div>
-                    <div class="table-footer">{{ $filtered->count() }} van {{ $students->count() }} studenten ·
-                        Alleen jouw actuele begeleiding</div>
+                    <div class="table-footer">{{ $filtered->count() + $visibleGroupStudents->count() }} leerlingen in de lijst</div>
                 </section>
                 <section class="card" id="rapportages">
                     <p class="eyebrow">ONTWIKKELING IN BEELD</p>
-                    <h2>Elke stap vooruit</h2>@php($percentage = $total ? (int) round(($achieved / $total) * 100) : 0)<div class="ring"
+                    <h2>Elke stap vooruit</h2>
+                    @php
+                        $percentage = $total ? (int) round(($achieved / $total) * 100) : 0;
+                    @endphp
+                    <div class="ring"
                         style="--progress: {{ $percentage }}%">
                         <div><strong
                                 @if (!$total) style="font-size:16px;letter-spacing:0" @endif>{{ $total ? $percentage . '%' : 'Nog geen data' }}</strong><span>behaald</span>
                         </div>
                     </div>
                     @if ($total === 0)
-                        <p class="center muted">Er zijn nog geen leeruitkomsten aan jouw studenten toegewezen. Je kunt
-                            de applicatiebeheerder een leeruitkomst laten koppelen om voortgang te meten.</p>
-                        @if ($students->isNotEmpty())
+                        <p class="center muted">Er zijn nog geen leeruitkomsten aan jouw studenten toegewezen. Voeg
+                            eerst een leeruitkomst toe om voortgang te meten.</p>
+                        @if ($studentOptions !== [])
                             <form method="GET" action="{{ route('dashboard') }}#student-detail"
                                 class="docent-form">
                                 <label for="progress-student">Kies een student<select id="progress-student"
@@ -211,7 +284,7 @@
                                     </select></label>
                                 <button type="submit" class="button dark">Dossier bekijken</button>
                             </form>
-                        @else<p class="center muted">Laat de beheerder eerst een student aan jouw begeleiding koppelen.</p>
+                        @else<p class="center muted">Voeg eerst een student toe via Mijn studenten.</p>
                         @endif
                     @else
                         <p class="center muted">{{ $achieved }} van {{ $total }} toegewezen leeruitkomsten
@@ -225,6 +298,16 @@
                 </section>
             </div>
             @if ($selected)
+                @php
+                    $selectedOutcomes = $outcomes->where('student_idstudent', $selected->idstudent);
+                    $selectedOutcomeCount = $selectedOutcomes->count();
+                    $selectedAchievedCount = $selectedOutcomes
+                        ->filter(fn ($outcome) => strtolower((string) $outcome->status) === 'behaald')
+                        ->count();
+                    $selectedProgress = $selectedOutcomeCount > 0
+                        ? (int) round($selectedAchievedCount / $selectedOutcomeCount * 100)
+                        : 0;
+                @endphp
                 <section class="card detail" id="student-detail">
                     <div class="section-heading">
                         <div>
@@ -235,25 +318,53 @@
                             ×</a>
                     </div>
                     <dl class="student-facts">
-                        <div><dt>Studentnummer</dt><dd>{{ $selected->studentnummer ?: 'Niet bekend' }}</dd></div>
-                        <div><dt>Klas</dt><dd>{{ $selected->klas ?: 'Geen klas' }}</dd></div>
-                        <div><dt>Opleiding</dt><dd>{{ $selected->opleiding ?: 'Geen opleiding' }}</dd></div>
-                        <div><dt>E-mailadres</dt><dd>{{ $selected->email ?: 'Niet bekend' }}</dd></div>
+                            @if ($selected->studentnummer)
+                                <div><dt>Studentnummer</dt><dd>{{ $selected->studentnummer }}</dd></div>
+                            @endif
+                            @if ($selected->klas)
+                                <div><dt>Klas</dt><dd>{{ $selected->klas }}</dd></div>
+                            @endif
+                            @if ($selected->opleiding)
+                                <div><dt>Opleiding</dt><dd>{{ $selected->opleiding }}</dd></div>
+                            @endif
+                            @if ($selected->email)
+                                <div><dt>E-mailadres</dt><dd>{{ $selected->email }}</dd></div>
+                            @endif
                     </dl>
+                    <h3 class="dossier-section-title">Ontwikkeling</h3>
+                    @if ($selectedOutcomeCount > 0)
+                            <div class="progress-label">
+                                <span>{{ $selectedAchievedCount }}/{{ $selectedOutcomeCount }} leeruitkomsten behaald</span>
+                                <b>{{ $selectedProgress }}%</b>
+                            </div>
+                            <progress value="{{ $selectedProgress }}" max="100"
+                                aria-label="Ontwikkeling van {{ $selected->voornaam }}">{{ $selectedProgress }}%</progress>
+                    @else
+                            <p class="muted">Er zijn nog geen leeruitkomsten aan deze leerling gekoppeld.</p>
+                    @endif
                     <h3 class="dossier-section-title">Leeruitkomsten</h3>
-                    <p class="muted">Alleen de applicatiebeheerder kan leeruitkomsten koppelen en beoordelingen wijzigen.</p>
-                    <div class="dossier-outcomes">
-                        @forelse($outcomes->where('student_idstudent', $selected->idstudent) as $outcome)
+                    <div class="dossier-outcomes" role="region"
+                        aria-label="Leeruitkomsten van {{ $selected->voornaam }} {{ $selected->achternaam }}"
+                        tabindex="0">
+                            @forelse($selectedOutcomes as $outcome)
                             <article class="dossier-outcome">
                                 <div class="dossier-outcome-main">
-                                    <small>{{ $outcome->code }}</small>
+                                        @if ($outcome->fase_naam)<small>{{ $outcome->fase_naam }}</small>@endif
+                                        @if ($outcome->code)<small>{{ $outcome->code }}</small>@endif
                                     <h4>{{ $outcome->titel }}</h4>
+                                        @if ($outcome->omschrijving)
+                                            <p class="preserve">{{ $outcome->omschrijving }}</p>
+                                        @endif
                                     @if($outcome->opmerking)
                                         <p class="preserve">{{ $outcome->opmerking }}</p>
                                     @endif
                                 </div>
-                                <span @class(['pill', 'dossier-status', 'dossier-status-done' => strtolower($outcome->status ?? '') === 'behaald', 'dossier-status-active' => strtolower($outcome->status ?? '') === 'bezig'])>{{ $outcome->status ?: 'Geen status' }}</span>
-                                <div class="dossier-updated"><span>Bijgewerkt</span><time>{{ $dateLabel($outcome->laatste_update) }}</time></div>
+                                    @if ($outcome->status)
+                                        <span @class(['pill', 'dossier-status', 'dossier-status-done' => strtolower($outcome->status) === 'behaald', 'dossier-status-active' => strtolower($outcome->status) === 'bezig'])>{{ $outcome->status }}</span>
+                                    @endif
+                                    @if ($outcome->laatste_update)
+                                        <div class="dossier-updated"><span>Bijgewerkt</span><time>{{ $dateLabel($outcome->laatste_update) }}</time></div>
+                                    @endif
                             </article>
                         @empty
                             <p class="empty">Voor deze student zijn nog geen leeruitkomsten vastgelegd.</p>
@@ -264,15 +375,21 @@
                 <div class="notice" role="status">Deze student is niet beschikbaar binnen jouw huidige begeleiding.
                 </div>
             @endif
+            @if($hasCoachRole)
             <div class="bottom-columns">
                 <section class="card" id="gesprekken">
+                    @php
+                        $agendaMeetings = $upcoming->concat($meetingRequests)
+                            ->sortBy(fn ($meeting) => $meeting->datum ?? '9999-12-31 23:59:59')
+                            ->values();
+                    @endphp
                     <div class="section-heading">
                         <div>
                             <p class="eyebrow">TIJD VOOR EEN GESPREK</p>
                             <h2>Coachgesprekken</h2>
                         </div><span class="count">{{ $upcomingCount }} gepland</span>
                     </div>
-                    @if ($students->isNotEmpty())
+                    @if ($studentOptions !== [])
                         <details class="edit-panel" @if (old('_form') === 'meeting-new') open @endif>
                             <summary>+ Gesprek plannen</summary>
                             @include('dashboards.docent-form', [
@@ -298,7 +415,7 @@
                             ])
                         </details>
                     @endif
-                    @forelse($upcoming as $meeting)
+                    @forelse($agendaMeetings as $meeting)
                         <article class="meeting">
                             <div class="calendar">
                                 <strong>{{ \Illuminate\Support\Carbon::parse($meeting->datum)->format('d') }}</strong><small>{{ \Illuminate\Support\Carbon::parse($meeting->datum)->format('m.Y') }}</small>
@@ -306,14 +423,44 @@
                             <div>
                                 <h3>{{ $meeting->onderwerp ?: 'Coachgesprek' }}</h3>
                                 <p>{{ $meeting->voornaam }} {{ $meeting->achternaam }}</p>
-                                <small>{{ $dateLabel($meeting->datum) }}</small>
+                                @if ($meeting->onderwerp === 'Gespreksaanvraag')
+                                    <small>{{ $meeting->datum ? $dateLabel($meeting->datum) : 'Geen datum opgegeven' }}</small>
+                                    <p><strong>
+                                        @if ($meeting->afspraken === 'approved')
+                                            Goedgekeurd
+                                        @elseif ($meeting->afspraken === 'rejected')
+                                            Afgekeurd
+                                        @else
+                                            Aangevraagd
+                                        @endif
+                                    </strong></p>
+                                    @if ($meeting->afspraken === 'pending')
+                                        <div class="meeting-request-actions">
+                                            <form method="POST" action="{{ route('docent.meeting-requests.approve', $meeting->idgesprek) }}">
+                                                @csrf @method('PUT')
+                                                <button class="button" type="submit">Goedkeuren</button>
+                                            </form>
+                                            <form method="POST" action="{{ route('docent.meeting-requests.reject', $meeting->idgesprek) }}">
+                                                @csrf @method('PUT')
+                                                <button class="danger" type="submit">Afkeuren</button>
+                                            </form>
+                                        </div>
+                                    @endif
+                                @else
+                                    <small>{{ $dateLabel($meeting->datum) }}</small>
+                                @endif
                                 @if ($meeting->inhoud || $meeting->afspraken)
                                     <details>
                                         <summary>Gespreksdetails</summary>
                                         <p class="preserve">{{ $meeting->inhoud }}</p>
-                                        <p class="preserve">{{ $meeting->afspraken }}</p>
+                                        @if ($meeting->onderwerp !== 'Gespreksaanvraag')
+                                            <p class="preserve">{{ $meeting->afspraken }}</p>
+                                        @endif
                                     </details>
-                                @endif@include('dashboards.docent-meeting-edit')
+                                @endif
+                                @if ($meeting->onderwerp !== 'Gespreksaanvraag')
+                                    @include('dashboards.docent-meeting-edit')
+                                @endif
                             </div>
                     </article>@empty<div class="empty"><span class="empty-symbol">◷</span><strong>Even ruimte in
                                 de agenda</strong>
@@ -327,7 +474,8 @@
                                 <strong>{{ $meeting->onderwerp ?: 'Coachgesprek' }}</strong><small>{{ $meeting->voornaam }}
                                     {{ $meeting->achternaam }} · {{ $dateLabel($meeting->datum) }}</small>
                                 <p class="preserve">{{ $meeting->inhoud }}</p>
-                                <p class="preserve">{{ $meeting->afspraken }}</p>@include('dashboards.docent-meeting-edit')
+                                <p class="preserve">{{ $meeting->afspraken }}</p>
+                                @include('dashboards.docent-meeting-edit')
                         </article>@empty<p class="muted">Nog geen eerdere gesprekken.</p>
                         @endforelse
                     </details>
@@ -339,7 +487,7 @@
                             <h2>Mijn recente notities</h2>
                         </div><span class="count">{{ $notesCount }}</span>
                     </div>
-                    @if ($students->isNotEmpty())
+                    @if ($studentOptions !== [])
                         <details class="edit-panel" @if (old('_form') === 'note-new') open @endif>
                             <summary>+ Notitie toevoegen</summary>
                             @include('dashboards.docent-form', [
@@ -408,6 +556,7 @@
                     <p class="footnote">De laatste acht notities die aan jouw coachprofiel zijn gekoppeld.</p>
                 </section>
             </div>
+            @endif
             <footer>Ontwikkelplatform <span>Gegevens opgehaald op {{ now()->format('d-m-Y H:i') }} · <a
                         href="#inhoud">Terug naar boven ↑</a></span></footer>
         </main>
