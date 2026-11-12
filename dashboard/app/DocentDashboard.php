@@ -126,8 +126,19 @@ class DocentDashboard
             $students->whereRaw('LOWER(student_member.status) = ?', ['actief']);
         }
 
+        $columns = [
+            'teacher_group.idgroep',
+            'teacher_group.groepnaam',
+            'student_member.idlid',
+            'student_member.voornaam',
+            'student_member.achternaam',
+            Schema::hasColumn('lid', 'email')
+                ? 'student_member.email'
+                : DB::raw('NULL AS email'),
+        ];
+
         return $students
-            ->select('teacher_group.idgroep', 'teacher_group.groepnaam', 'student_member.idlid', 'student_member.voornaam', 'student_member.achternaam')
+            ->select($columns)
             ->orderBy('teacher_group.groepnaam')
             ->orderBy('student_member.achternaam')
             ->orderBy('student_member.voornaam')
@@ -237,21 +248,100 @@ class DocentDashboard
             $notes = $this->legacyNotes($studentIds);
             $meetings = $this->legacyMeetings($user, $studentIds);
             $studentCount = $teacherGroupStudents->pluck('idlid')->unique()->count();
+            $outcomes = collect();
+            if (Schema::hasTable('leeruitkomsten_has_lid')
+                && Schema::hasTable('leeruitkomsten')
+                && Schema::hasColumn('leeruitkomsten_has_lid', 'lid_idlid')
+                && Schema::hasColumn('leeruitkomsten_has_lid', 'leeruitkomsten_id')
+                && Schema::hasColumn('leeruitkomsten', 'leeruitkomsten_id')
+                && Schema::hasColumn('leeruitkomsten', 'titel')) {
+                $outcomeColumns = [
+                    'assignment.lid_idlid as student_idstudent',
+                    'outcome.titel',
+                    Schema::hasColumn('leeruitkomsten', 'code')
+                        ? 'outcome.code'
+                        : DB::raw('NULL AS code'),
+                    Schema::hasColumn('leeruitkomsten_has_lid', 'status')
+                        ? 'assignment.status'
+                        : DB::raw('NULL AS status'),
+                    Schema::hasColumn('leeruitkomsten', 'omschrijving')
+                        ? 'outcome.omschrijving'
+                        : DB::raw('NULL AS omschrijving'),
+                    Schema::hasColumn('leeruitkomsten_has_lid', 'opmerking')
+                        ? 'assignment.opmerking'
+                        : DB::raw('NULL AS opmerking'),
+                    Schema::hasColumn('leeruitkomsten_has_lid', 'laatste_update')
+                        ? 'assignment.laatste_update'
+                        : DB::raw('NULL AS laatste_update'),
+                ];
+                $outcomeQuery = DB::table('leeruitkomsten_has_lid as assignment')
+                    ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
+                    ->whereIn('assignment.lid_idlid', $teacherGroupStudents->pluck('idlid'));
+
+                $phaseColumn = Schema::hasColumn('leeruitkomsten', 'fase_idfase1')
+                    ? 'fase_idfase1'
+                    : (Schema::hasColumn('leeruitkomsten', 'fase_idfase') ? 'fase_idfase' : null);
+                if ($phaseColumn
+                    && Schema::hasTable('fase')
+                    && Schema::hasColumn('fase', 'idfase')
+                    && Schema::hasColumn('fase', 'naam')) {
+                    $outcomeQuery->leftJoin('fase', 'fase.idfase', '=', "outcome.$phaseColumn");
+                    $outcomeColumns[] = 'fase.naam as fase_naam';
+                } else {
+                    $outcomeColumns[] = DB::raw('NULL AS fase_naam');
+                }
+
+                $outcomes = $outcomeQuery
+                    ->orderBy('outcome.titel')
+                    ->select($outcomeColumns)
+                    ->get();
+            }
+            foreach ($teacherGroupStudents as $groupStudent) {
+                $studentOutcomes = $outcomes->where('student_idstudent', $groupStudent->idlid);
+                $groupStudent->total = $studentOutcomes->count();
+                $groupStudent->achieved = $studentOutcomes
+                    ->filter(fn ($outcome) => strtolower((string) $outcome->status) === 'behaald')
+                    ->count();
+                $groupStudent->progress = $groupStudent->total > 0
+                    ? (int) round($groupStudent->achieved / $groupStudent->total * 100)
+                    : null;
+                $groupStudent->lastUpdate = $studentOutcomes
+                    ->pluck('laatste_update')
+                    ->filter()
+                    ->sortDesc()
+                    ->first();
+            }
+            $total = $outcomes->count();
+            $achieved = $outcomes->filter(fn ($outcome) => strtolower((string) $outcome->status) === 'behaald')->count();
+            $requestedStudent = $request->query('student');
+            $selectedGroupStudent = is_string($requestedStudent) && ctype_digit($requestedStudent)
+                ? $teacherGroupStudents->firstWhere('idlid', (int) $requestedStudent)
+                : null;
+            $selected = $selectedGroupStudent ? (object) [
+                'idstudent' => $selectedGroupStudent->idlid,
+                'studentnummer' => null,
+                'klas' => $selectedGroupStudent->groepnaam,
+                'opleiding' => null,
+                'email' => $selectedGroupStudent->email,
+                'voornaam' => $selectedGroupStudent->voornaam,
+                'achternaam' => $selectedGroupStudent->achternaam,
+            ] : null;
 
             return [
                 'students' => collect(),
                 'studentCount' => $studentCount,
                 'filtered' => collect(),
-                'selected' => null,
-                'outcomes' => collect(),
+                'selected' => $selected,
+                'outcomes' => $outcomes,
                 'search' => $search,
                 'class' => $class,
                 'attention' => false,
-                'total' => 0,
-                'achieved' => 0,
+                'total' => $total,
+                'achieved' => $achieved,
                 'teacherGroups' => $teacherGroups,
                 'teacherGroupStudents' => $teacherGroupStudents,
                 'visibleGroupStudents' => $visibleGroupStudents,
+                'legacyMode' => true,
                 'availableOutcomes' => collect(),
                 'classes' => $teacherGroups->pluck('groepnaam')->filter()->values(),
                 'attentionCount' => 0,
@@ -279,7 +369,20 @@ class DocentDashboard
         $outcomes = DB::table('student_leeruitkomsten as a')
             ->join('leeruitkomsten as o', 'o.leeruitkomsten_id', '=', 'a.leeruitkomsten_leeruitkomsten_id')
             ->whereIn('a.student_idstudent', $ids)
-            ->select('a.id_leeruitkomsten', 'a.opmerking', 'a.student_idstudent', 'a.status', 'a.vooruitgang', 'a.laatste_update', 'o.titel', 'o.code')
+            ->select(
+                'a.id_leeruitkomsten',
+                'a.opmerking',
+                'a.student_idstudent',
+                'a.status',
+                'a.vooruitgang',
+                'a.laatste_update',
+                'o.titel',
+                'o.code',
+                Schema::hasColumn('leeruitkomsten', 'omschrijving')
+                    ? 'o.omschrijving'
+                    : DB::raw('NULL AS omschrijving'),
+                DB::raw('NULL AS fase_naam'),
+            )
             ->orderBy('o.code')->get();
         foreach ($students as $student) {
             $items = $outcomes->where('student_idstudent', $student->idstudent);
@@ -339,6 +442,7 @@ class DocentDashboard
             'coachLinked' => $user->hasAnyRole(['coach']) && $coachIds->isNotEmpty(),
             'hasCoachRole' => $user->hasAnyRole(['coach']),
             'studentCount' => $studentCount,
+            'legacyMode' => false,
             'meetingRequests' => $this->conversationRequests($user),
             'notesCount' => (clone $notes)->count(),
             'notes' => $notes->limit(8)->get(),
