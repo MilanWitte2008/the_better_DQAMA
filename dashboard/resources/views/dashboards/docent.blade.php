@@ -20,6 +20,7 @@
     <title>Docentdashboard · Ontwikkelplatform</title>
     <style>
         @include('dashboards.docent-style') @include('components.dashboard-navigation-style')
+        .teacher-groups{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:-8px 0 18px;font-size:11px;color:#54748e}.teacher-groups strong{margin-right:4px}.teacher-groups-empty{font-size:11px;margin:-8px 0 18px}
     </style>
 </head>
 
@@ -112,6 +113,16 @@
                             <h2>Mijn studenten <span class="count">{{ $students->count() }}</span></h2>
                         </div><span class="live">Uit de database</span>
                     </div>
+                    @if ($teacherGroups->isNotEmpty())
+                        <div class="teacher-groups" aria-label="Jouw groepen">
+                            <strong>Jouw groepen</strong>
+                            @foreach ($teacherGroups as $teacherGroup)
+                                <span class="pill">{{ $teacherGroup->groepnaam }}</span>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="muted teacher-groups-empty">Je bent nog niet aan een groep gekoppeld.</p>
+                    @endif
                     {{-- GET-filters delen dezelfde toegangsselectie als de detailweergave. --}}
                     <form class="filters" method="GET" action="{{ route('dashboard') }}#studenten">
                         <label><span>Zoeken</span><input name="q" type="search" maxlength="100"
@@ -150,7 +161,7 @@
                                             <div class="person"><span
                                                     class="avatar">{{ mb_strtoupper(mb_substr($student->voornaam ?? '', 0, 1) . mb_substr($student->achternaam ?? '', 0, 1)) }}</span>
                                                 <div><strong>{{ $student->voornaam }}
-                                                        {{ $student->achternaam }}</strong><small>{{ $student->klas ?: 'Geen klas' }}
+                                                        {{ $student->achternaam }}</strong><small>Groep: {{ $student->groepen->isNotEmpty() ? $student->groepen->join(', ') : 'Geen groep' }} · {{ $student->klas ?: 'Geen klas' }}
                                                         · {{ $student->opleiding ?: 'Geen opleiding' }}</small></div>
                                             </div>
                                         </td>
@@ -237,6 +248,7 @@
                     <dl class="student-facts">
                         <div><dt>Studentnummer</dt><dd>{{ $selected->studentnummer ?: 'Niet bekend' }}</dd></div>
                         <div><dt>Klas</dt><dd>{{ $selected->klas ?: 'Geen klas' }}</dd></div>
+                        <div><dt>Groep(en)</dt><dd>{{ $selected->groepen->isNotEmpty() ? $selected->groepen->join(', ') : 'Geen groep' }}</dd></div>
                         <div><dt>Opleiding</dt><dd>{{ $selected->opleiding ?: 'Geen opleiding' }}</dd></div>
                         <div><dt>E-mailadres</dt><dd>{{ $selected->email ?: 'Niet bekend' }}</dd></div>
                     </dl>

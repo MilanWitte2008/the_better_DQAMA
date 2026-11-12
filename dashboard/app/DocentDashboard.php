@@ -170,6 +170,22 @@ class DocentDashboard
             ->whereIn('s.idstudent', $assigned)
             ->select('s.idstudent', 's.lid_idlid', 's.klas', 's.opleiding', 's.studentnummer', 'l.voornaam', 'l.achternaam', 'l.email', 'l.status')
             ->orderBy('l.achternaam')->orderBy('l.voornaam')->get();
+        // Studenten die alleen via een docentgroep gekoppeld zijn horen ook in het hoofdoverzicht.
+        if ($teacherGroupStudents->isNotEmpty()) {
+            $groupMemberIds = $teacherGroupStudents->pluck('idlid')->unique();
+            $groupOnlyStudents = DB::table('student as s')->join('lid as l', 'l.idlid', '=', 's.lid_idlid')
+                ->whereIn('s.lid_idlid', $groupMemberIds)
+                ->whereNotIn('s.idstudent', $students->pluck('idstudent'))
+                ->select('s.idstudent', 's.lid_idlid', 's.klas', 's.opleiding', 's.studentnummer', 'l.voornaam', 'l.achternaam', 'l.email', 'l.status')
+                ->get();
+            $students = $students->concat($groupOnlyStudents)->sortBy(fn ($student) => mb_strtolower($student->achternaam.' '.$student->voornaam))->values();
+        }
+        $groupNamesByStudent = $teacherGroupStudents->groupBy('idlid')->map(
+            fn (Collection $memberships) => $memberships->pluck('groepnaam')->filter()->unique()->sort()->values()
+        );
+        foreach ($students as $student) {
+            $student->groepen = $groupNamesByStudent->get($student->lid_idlid, collect());
+        }
         $ids = $students->pluck('idstudent');
         $outcomes = DB::table('student_leeruitkomsten as a')
             ->join('leeruitkomsten as o', 'o.leeruitkomsten_id', '=', 'a.leeruitkomsten_leeruitkomsten_id')
@@ -192,7 +208,7 @@ class DocentDashboard
             $haystack = mb_strtolower($student->voornaam.' '.$student->achternaam.' '.$student->email.' '.$student->studentnummer);
 
             return ($search === '' || str_contains($haystack, mb_strtolower($search)))
-                && ($class === '' || $class === $student->klas)
+                && ($class === '' || $class === $student->klas || $student->groepen->contains($class))
                 && (! $attention || $student->attention);
         });
         $selected = $students->firstWhere('idstudent', $text('student'));
@@ -226,7 +242,7 @@ class DocentDashboard
             'availableOutcomes' => $selected ? DB::table('leeruitkomsten')->whereNotIn('leeruitkomsten_id', DB::table('student_leeruitkomsten')->where('student_idstudent', $selected->idstudent)->select('leeruitkomsten_leeruitkomsten_id'))->orderBy('code')->get(['leeruitkomsten_id', 'code', 'titel']) : collect(),
             'classes' => $classes,
             'attentionCount' => $students->where('attention', true)->count(),
-            'coachLinked' => $coachIds->isNotEmpty(),
+            'coachLinked' => $coachIds->isNotEmpty() || $groupIds->isNotEmpty(),
             'notesCount' => (clone $notes)->count(),
             'notes' => $notes->limit(8)->get(),
             'upcomingCount' => (clone $meetings)->where('g.datum', '>=', now())->count(),
