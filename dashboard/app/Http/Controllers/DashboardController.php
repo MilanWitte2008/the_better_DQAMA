@@ -14,6 +14,8 @@ class DashboardController extends Controller
         // Haal de ingelogde gebruiker en diens rol op.
         $user = $request->user()->load('rol');
         $roleKey = $user->dashboardRoleKey();
+        $requestedRole = $request->route('dashboard_role');
+        abort_if($requestedRole !== null && $requestedRole !== $roleKey, 403, 'Deze pagina hoort bij een andere rol.');
 
         // Stop als het account inactief is of geen bekende rol heeft.
         abort_unless($roleKey && strtolower((string) $user->status) === 'actief', 403, 'Je account heeft geen geldige dashboardrol.');

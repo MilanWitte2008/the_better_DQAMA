@@ -17,6 +17,17 @@ class TeamManagerDashboardTest extends TestCase
         DB::table('lid')->insert(['idlid' => 1, 'voornaam' => 'Test', 'achternaam' => 'Manager', 'status' => 'actief', 'rol_idrol' => 1]);
     }
 
+    public function test_named_dashboard_routes_require_login_and_the_matching_role(): void
+    {
+        foreach (['docent', 'student', 'teammanager', 'applicatiebeheerder'] as $path) {
+            $this->get('/'.$path)->assertRedirect('/login');
+        }
+        $this->actingAs(User::findOrFail(1))->get('/teammanager')->assertOk();
+        foreach (['docent', 'student', 'applicatiebeheerder'] as $path) {
+            $this->get('/'.$path)->assertForbidden();
+        }
+    }
+
     public function test_dashboard_opens_on_port_8000_when_group_tables_are_missing(): void
     {
         $this->actingAs(User::findOrFail(1))

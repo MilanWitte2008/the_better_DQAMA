@@ -17,6 +17,15 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10
 
 // Je moet ingelogd zijn. De controller kiest daarna de pagina voor jouw rol.
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
+
+// Elke rol heeft ook een herkenbaar webadres met dezelfde toegangscontrole.
+foreach (['docent' => 'docent', 'student' => 'student', 'teammanager' => 'teamleider', 'applicatiebeheerder' => 'beheerder'] as $path => $role) {
+    Route::get('/'.$path, [DashboardController::class, 'index'])
+        ->defaults('dashboard_role', $role)
+        ->middleware('auth')
+        ->name($path.'.dashboard');
+}
+
 Route::post('/dashboard/leerdoelen', [StudentDashboardController::class, 'storeGoal'])->middleware('auth')->name('student.goals.store');
 Route::post('/dashboard/reflecties', [StudentDashboardController::class, 'storeReflection'])->middleware('auth')->name('student.reflections.store');
 Route::post('/teamleider/groepen', [TeamManagerDashboardController::class, 'storeGroup'])->middleware('auth')->name('teammanager.groups.store');

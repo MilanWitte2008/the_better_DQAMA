@@ -75,6 +75,17 @@
             "Composer\\Config::disableProcessTimeout",
             "npm run build",
             "@php artisan serve --host=0.0.0.0 --port=8000 --tries=1 --no-reload"
+        ],
+        "prepare:local": [
+            "npm run build",
+            "@php -r \"if (file_exists('public/hot')) { unlink('public/hot'); }\"",
+            "@php artisan config:clear --no-interaction",
+            "@php artisan view:clear --no-interaction"
+        ],
+        "serve:local": [
+            "Composer\\Config::disableProcessTimeout",
+            "@prepare:local",
+            "@php artisan serve --host=127.0.0.1 --port=8000 --tries=1 --no-reload"
         ]
     },
     "extra": {
