@@ -1,0 +1,21 @@
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    RewriteRule ^dashboard/public/?$ ./ [R=302,L]
+    RewriteRule ^dashboard/public/(.*)$ $1 [R=302,L]
+
+    RewriteRule ^(css|js|images|icons|build)(/.*)?$ dashboard/public/$1$2 [L]
+    RewriteRule ^(favicon\.ico|robots\.txt)$ dashboard/public/$1 [L]
+
+    RewriteRule ^index\.php$ - [L]
+    RewriteRule ^ index.php [L]
+</IfModule>

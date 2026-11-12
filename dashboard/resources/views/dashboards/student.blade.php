@@ -9,6 +9,33 @@
     $schoolYearStart = now()->month >= 8 ? now()->year : now()->year - 1;
     $schoolYear = $schoolYearStart . '–' . ($schoolYearStart + 1);
     $db = \Illuminate\Support\Facades\DB::connection();
+    $phaseColumn = $db->getSchemaBuilder()->hasColumn('leeruitkomsten', 'fase_idfase1') ? 'fase_idfase1' : 'fase_idfase';
+    $schema = $db->getSchemaBuilder();
+    $studentIds = $schema->hasTable('student')
+        ? $db->table('student')->where('lid_idlid', $memberId)->pluck('idstudent') : collect();
+    // Ondersteun zowel lid-koppelingen als de bestaande studentprofielen.
+    if ($schema->hasTable('leeruitkomsten_has_lid')) {
+        $assignments = $db->table('leeruitkomsten_has_lid')->where('lid_idlid', $memberId)
+            ->select('leeruitkomsten_id', 'status');
+    } elseif ($schema->hasTable('student_leeruitkomsten')) {
+        $assignments = $db->table('student_leeruitkomsten')->whereIn('student_idstudent', $studentIds)
+            ->select('leeruitkomsten_leeruitkomsten_id as leeruitkomsten_id', 'status');
+    } else {
+        $assignments = $db->table('leeruitkomsten')->whereRaw('1 = 0')
+            ->select('leeruitkomsten_id')->selectRaw("'Te doen' as status");
+    }
+    $assignmentQuery = fn () => $db->query()->fromSub(clone $assignments, 'assignment');
+    $hoursQuery = $db->table('urenregistratie');
+    if ($schema->hasColumn('urenregistratie', 'lid_id')) {
+        $hoursQuery->where('lid_id', $memberId);
+    } else {
+        $hoursQuery->whereIn('student_id', $studentIds);
+    }
+
+    // Tel de behaalde leeruitkomsten voor het voortgangspercentage in de header.
+    $outcomeProgress = $assignmentQuery()
+        ->selectRaw('COUNT(*) AS total, SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS completed', ['Behaald'])
+        ->first();
     $schema = $db->getSchemaBuilder();
     $phaseColumn = $schema->hasColumn('leeruitkomsten', 'fase_idfase1') ? 'fase_idfase1' : 'fase_idfase';
 
@@ -25,6 +52,16 @@
         }
     }
 
+    // Sorteer de leeruitkomsten per fase en toon de persoonlijke status.
+    $outcomes = $assignmentQuery()
+        ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
+        ->leftJoin('fase', 'fase.idfase', '=', "outcome.$phaseColumn")
+        ->orderByRaw('CASE WHEN fase.volgorde IS NULL THEN 1 ELSE 0 END')
+        ->orderBy('fase.volgorde')
+        ->orderByRaw("FIELD(assignment.status, 'Bezig', 'Te doen', 'Behaald')")
+        ->orderBy('outcome.titel')
+        ->select('outcome.titel', 'outcome.omschrijving', 'assignment.status', 'fase.naam as fase_naam')
+        ->get();
     // Toon de resultaten uit het schema dat ook door het docentdashboard wordt bijgewerkt.
     $outcomes = collect();
     $usingModernOutcomes = false;
@@ -93,12 +130,26 @@
     ];
 
     // Haal de urenregistraties op, nieuwste eerst.
-    $hours = $db->table('urenregistratie')
-        ->where('lid_id', $memberId)
+    $hours = (clone $hoursQuery)
         ->orderByDesc('datum')
         ->get();
 
     // Haal de fases van de student op.
+    $phases = $assignmentQuery()
+        ->join('leeruitkomsten as outcome', 'outcome.leeruitkomsten_id', '=', 'assignment.leeruitkomsten_id')
+        ->join('fase', 'fase.idfase', '=', "outcome.$phaseColumn")
+        ->select('fase.idfase', 'fase.naam', 'fase.volgorde')
+        ->selectRaw('COUNT(*) AS outcome_count, SUM(CASE WHEN assignment.status = ? THEN 1 ELSE 0 END) AS completed_count', ['Behaald'])
+        ->groupBy('fase.idfase', 'fase.naam', 'fase.volgorde')
+        ->orderBy('fase.volgorde')
+        ->get()
+        ->map(function ($phase) {
+            $phase->progress = $phase->outcome_count > 0
+                ? (int) round(($phase->completed_count / $phase->outcome_count) * 100)
+                : 0;
+
+            return $phase;
+        });
     $phases = collect();
     if (! $usingModernOutcomes
         && $schema->hasTable('leeruitkomsten_has_lid')
@@ -141,9 +192,34 @@
             });
     }
 
+    if ($schema->hasTable('student_phase_assignments')) {
+        $explicitPhases = $db->table('student_phase_assignments')
+            ->join('fase', 'fase.idfase', '=', 'phase_id')
+            ->where('member_id', $memberId)->get(['fase.idfase', 'fase.naam', 'fase.volgorde']);
+        foreach ($explicitPhases as $phase) {
+            if (! $phases->contains('idfase', $phase->idfase)) {
+                $phase->outcome_count = 0;
+                $phase->completed_count = 0;
+                $phase->progress = 0;
+                $phases->push($phase);
+            }
+        }
+        $phases = $phases->sortBy('volgorde')->values();
+    }
+
     // Haal de vijf nieuwste reflecties op.
-    $reflections = $db->table('reflectie')
-        ->where('lid_idlid', $memberId)
+    $reflectionQuery = $db->table('reflectie');
+    if ($schema->hasColumn('reflectie', 'lid_idlid')) {
+        $reflectionQuery->where('lid_idlid', $memberId);
+    } elseif ($schema->hasTable('student_leeruitkomsten')) {
+        $reflectionQuery->whereIn('student_leeruitkomsten_id_leeruitkomsten',
+            $db->table('student_leeruitkomsten')->whereIn('student_idstudent', $studentIds)->select('id_leeruitkomsten'));
+    } elseif ($schema->hasColumn('reflectie', 'fase_has_lid_lid_idlid')) {
+        $reflectionQuery->where('fase_has_lid_lid_idlid', $memberId);
+    } else {
+        $reflectionQuery->whereRaw('1 = 0');
+    }
+    $reflections = $reflectionQuery
         ->orderByDesc('datum')
         ->orderByDesc('idreflectie')
         ->get();
@@ -202,8 +278,7 @@
 
     // Haal goedgekeurde uren van de laatste zes maanden op.
     $monthStart = now()->startOfMonth()->subMonths(5);
-    $monthlyHours = $db->table('urenregistratie')
-        ->where('lid_id', $memberId)
+    $monthlyHours = (clone $hoursQuery)
         ->where('status', 'Goedgekeurd')
         ->whereBetween('datum', [$monthStart->toDateString(), now()->toDateString()])
         ->selectRaw("DATE_FORMAT(datum, '%Y-%m') AS maand, SUM(uren) AS totaal")
@@ -329,6 +404,16 @@
             </div>
             @if ($studentData['hours']->isEmpty())
                 <p class="info-strip">Er zijn nog geen uren aan jouw account gekoppeld.</p>
+            @else
+                <ul class="updates-list">
+                    @foreach($studentData['hours'] as $entry)
+                        <li>
+                            <time>{{ \Illuminate\Support\Carbon::parse($entry->datum)->format('d-m-Y') }}</time>
+                            <strong>{{ number_format($entry->uren, 2, ',', '.') }} uur · {{ $entry->status }}</strong>
+                            <span>{{ $entry->omschrijving }}</span>
+                        </li>
+                    @endforeach
+                </ul>
             @endif
         </section>
 
