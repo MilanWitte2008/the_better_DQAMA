@@ -184,7 +184,7 @@ class DocentController extends Controller
             'inhoud' => ['nullable', 'string', 'max:10000'],
             'afspraken' => ['nullable', 'string', 'max:10000'],
         ]);
-        $data['datum'] = Carbon::parse($data['datum'])->format('Y-m-d H:i:s');
+        $data['datum'] = Carbon::parse($data['datum'], 'Europe/Amsterdam')->format('Y-m-d H:i:s');
 
         return $data;
     }

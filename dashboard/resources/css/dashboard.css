@@ -838,6 +838,15 @@ body.dashboard-navigation .topbar .notification-panel p {
     color: #153d5b;
     background: white;
 }
+.meeting-time-selects {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.meeting-time-selects select {
+    width: auto;
+    min-width: 96px;
+}
 .simple-form textarea {
     resize: vertical;
 }

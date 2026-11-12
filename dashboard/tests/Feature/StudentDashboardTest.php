@@ -257,6 +257,7 @@ class StudentDashboardTest extends TestCase
 
     public function test_student_meeting_request_notifies_only_the_linked_active_coach(): void
     {
+        $this->assertSame('Europe/Amsterdam', config('app.timezone'));
         DB::table('groep')->where('idgroep', 1)->update(['status' => 'actief']);
         DB::table('gesprekken')->insert([
             'student_idstudent' => 1,
@@ -275,6 +276,7 @@ class StudentDashboardTest extends TestCase
             ->assertSee('<summary class="primary-button meeting-request-toggle">Gesprek aanvragen</summary>', false)
             ->assertSee('name="datum"', false)
             ->assertSee('type="datetime-local"', false)
+            ->assertSee('lang="nl-NL" step="60"', false)
             ->assertSee('Kim Coach')
             ->assertSee('Rae Coach')
             ->assertSee('Jo Docent')

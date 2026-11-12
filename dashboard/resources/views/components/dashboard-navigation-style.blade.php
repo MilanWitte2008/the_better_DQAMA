@@ -1,7 +1,9 @@
 /* Gedeelde navigatiestijl. Alleen zijbalk en bovenbalk worden aangepast. */
 body.dashboard-navigation .sidebar {
     width:258px; padding:24px 14px 18px; background:#06283d; color:#f3f8ff;
-    display:flex; flex-direction:column; flex-shrink:0; font-family:'Instrument Sans',Arial,Helvetica,sans-serif;
+    display:flex; flex-direction:column; flex-shrink:0; align-self:flex-start;
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+    font-family:'Instrument Sans',Arial,Helvetica,sans-serif;
 }
 body.dashboard-navigation .sidebar .brand {
     display:flex; align-items:center; flex-wrap:nowrap; gap:12px; padding:4px 8px 24px;

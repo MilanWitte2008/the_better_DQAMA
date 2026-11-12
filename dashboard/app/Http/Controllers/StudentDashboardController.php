@@ -127,7 +127,7 @@ class StudentDashboardController extends Controller
                 'onderwerp' => \App\DocentDashboard::MEETING_REQUEST_TOPIC,
                 'inhoud' => $data['bericht'] ?? null,
                 'afspraken' => 'pending',
-                'datum' => \Illuminate\Support\Carbon::createFromFormat('Y-m-d\TH:i', $data['datum'])->format('Y-m-d H:i:s'),
+                'datum' => \Illuminate\Support\Carbon::createFromFormat('Y-m-d\TH:i', $data['datum'], 'Europe/Amsterdam')->format('Y-m-d H:i:s'),
             ];
             if (Schema::hasColumn('gesprekken', 'student_idstudent')) {
                 $studentId = Schema::hasTable('student') && Schema::hasColumn('student', 'idstudent')
