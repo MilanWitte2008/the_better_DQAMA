@@ -609,8 +609,8 @@
             <p class="info-strip">Er zijn nog geen notities aan jouw account gekoppeld.</p>
         @endif
     </section>
-        {{-- Toon recente reflecties en de urenregistratie van de afgelopen maanden. --}}
-    <div class="content-grid">
+    {{-- Toon recente reflecties over de volledige dashboardbreedte. --}}
+    <div class="content-grid single-column">
         <section class="panel" id="reflecties" data-dashboard-section="reflecties">
             <h3>Reflecties</h3>
             @if ($studentData['reflections']->isNotEmpty())

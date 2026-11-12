@@ -149,6 +149,41 @@ class DocentDashboardTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_docent_sees_and_can_approve_requests_sent_directly_to_them_without_a_class_assignment(): void
+    {
+        Schema::drop('student_coach');
+        Schema::drop('student');
+        Schema::drop('coach');
+        DB::statement('CREATE TABLE groep (idgroep INTEGER PRIMARY KEY, groepnaam TEXT, status TEXT)');
+        DB::statement('CREATE TABLE groep_has_lid (idgroep INTEGER, idlid INTEGER)');
+        DB::statement('CREATE TABLE gesprekken_has_lid (gesprekken_idgesprek INTEGER, lid_idlid INTEGER)');
+        DB::table('groep')->insert(['idgroep' => 1, 'groepnaam' => 'Alle leden', 'status' => null]);
+        DB::table('groep_has_lid')->insert([
+            ['idgroep' => 1, 'idlid' => 1],
+            ['idgroep' => 1, 'idlid' => 11],
+        ]);
+        $request = DB::table('gesprekken')->insertGetId([
+            'datum' => '2026-11-13 10:00:00',
+            'onderwerp' => DocentDashboard::MEETING_REQUEST_TOPIC,
+            'inhoud' => 'Mijn aanvraag aan deze docent.',
+            'afspraken' => 'pending',
+        ]);
+        DB::table('gesprekken_has_lid')->insert([
+            ['gesprekken_idgesprek' => $request, 'lid_idlid' => 11],
+            ['gesprekken_idgesprek' => $request, 'lid_idlid' => 1],
+        ]);
+
+        $this->actingAs(User::findOrFail(1))->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Ada Voorbeeld')
+            ->assertSee('Mijn aanvraag aan deze docent.')
+            ->assertSee('Aangevraagd');
+
+        $this->put('/docent/gesprekaanvragen/'.$request.'/goedkeuren')
+            ->assertRedirect('/dashboard?aanvragen=verwerkt#gesprekken');
+        $this->assertDatabaseHas('gesprekken', ['idgesprek' => $request, 'afspraken' => 'approved']);
+    }
+
     public function test_search_class_attention_and_detail_cannot_expand_access(): void
     {
         $service = app(DocentDashboard::class);

@@ -257,19 +257,11 @@ class DocentController extends Controller
             && Schema::hasColumn('gesprekken', 'afspraken')
             && $this->hasLegacyMeetingParticipants(), 404);
 
-        $studentMemberIds = app(DocentDashboard::class)->studentMemberIds($request->user());
+        $requestIds = app(DocentDashboard::class)->visibleConversationRequestIds($request->user());
         $query = DB::table('gesprekken')
             ->where('idgesprek', $aanvraag)
-            ->where('onderwerp', DocentDashboard::MEETING_REQUEST_TOPIC)
-            ->where('afspraken', 'pending')
-            ->whereExists(fn ($link) => $link->selectRaw('1')
-                ->from('gesprekken_has_lid as teacher_link')
-                ->whereColumn('teacher_link.gesprekken_idgesprek', 'gesprekken.idgesprek')
-                ->where('teacher_link.lid_idlid', $request->user()->getKey()))
-            ->whereExists(fn ($link) => $link->selectRaw('1')
-                ->from('gesprekken_has_lid as student_link')
-                ->whereColumn('student_link.gesprekken_idgesprek', 'gesprekken.idgesprek')
-                ->whereIn('student_link.lid_idlid', $studentMemberIds));
+            ->whereIn('idgesprek', $requestIds)
+            ->where('afspraken', 'pending');
         $updated = $query->update(['afspraken' => $status]);
         abort_unless($updated === 1, 404);
 
