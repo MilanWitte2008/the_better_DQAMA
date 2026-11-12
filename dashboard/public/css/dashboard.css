@@ -1178,6 +1178,109 @@ body.dashboard-navigation .topbar .notification-panel p {
     color: #315d7c;
     font-size: 13px;
 }
+.personal-goal-list li.student-record {
+    display: grid;
+    align-items: start;
+}
+.student-record-actions {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    margin-top: 10px;
+}
+.meeting-request {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #e7eff4;
+}
+.meeting-request-toggle {
+    width: fit-content;
+    cursor: pointer;
+    list-style: none;
+}
+.meeting-request-toggle::-webkit-details-marker {
+    display: none;
+}
+.meeting-request-toggle:focus-visible {
+    outline: 2px solid #1689e8;
+    outline-offset: 3px;
+}
+.meeting-request .student-entry-form {
+    margin-top: 12px;
+}
+.record-toggle {
+    width: fit-content;
+    padding: 8px 10px;
+    border: 1px solid #cfe0eb;
+    border-radius: 6px;
+    background: #f5fafc;
+    color: #214964;
+    font: 600 11px Arial, sans-serif;
+    cursor: pointer;
+    list-style: none;
+}
+.record-toggle::-webkit-details-marker {
+    display: none;
+}
+.record-toggle:hover,
+.record-toggle:focus-visible {
+    background: #e7f3f8;
+}
+.record-toggle:focus-visible {
+    outline: 2px solid #1689e8;
+    outline-offset: 2px;
+}
+.student-record-actions form {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.student-record-actions .simple-form {
+    flex: 1;
+}
+.student-record-actions form.simple-form {
+    display: grid;
+}
+.student-record-actions input,
+.student-record-actions textarea {
+    min-width: 0;
+}
+.record-button {
+    flex: none;
+    padding: 8px 10px;
+    border: 1px solid #cfe0eb;
+    border-radius: 6px;
+    background: #f5fafc;
+    color: #214964;
+    font: 600 11px Arial, sans-serif;
+    cursor: pointer;
+}
+.record-button:hover {
+    background: #e7f3f8;
+}
+.record-button.record-delete {
+    border-color: #f0d0d0;
+    background: #fff7f7;
+    color: #9e3b3b;
+}
+.record-button.record-delete:hover {
+    background: #fdeaea;
+}
+.updates-list li.student-reflection-item {
+    display: grid;
+    gap: 10px;
+}
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
 .personal-goal-list li small {
     display: block;
     margin-top: 4px;

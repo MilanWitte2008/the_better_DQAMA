@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\StudentDashboard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -11,7 +12,7 @@ class DashboardController extends Controller
     /**
      * Kies het juiste dashboard voor de ingelogde gebruiker.
      */
-    public function index(Request $request)
+    public function index(Request $request, StudentDashboard $studentDashboard)
     {
         // Haal de ingelogde gebruiker en diens rol op.
         $user = $request->user()->load('rol');
@@ -54,6 +55,8 @@ class DashboardController extends Controller
         };
 
         // Stuur de gebruiker en de rol naar de pagina.
-        return view($view, compact('user', 'roleKey'));
+        $coaches = $roleKey === 'student' ? $studentDashboard->coachesFor($user) : collect();
+
+        return view($view, compact('user', 'roleKey', 'coaches'));
     }
 }

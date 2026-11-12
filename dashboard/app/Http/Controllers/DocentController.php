@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -88,13 +89,20 @@ class DocentController extends Controller
         return $this->done('student-detail', ['student' => $student]);
     }
 
-    /** Notities blijven eigendom van hun auteur; een andere coach kan ze niet wijzigen. */
+    /** Controleer het record opnieuw binnen de actuele leerlingkoppelingen. */
     private function note(Request $request, int $note): Builder
     {
         $ids = app(DocentDashboard::class)->studentIds($request->user());
-        $query = DB::table('begeleidingsnotitie')->where('id_notitie', $note)
-            ->whereIn('idstudent', $ids)
-            ->whereIn('idcoach', app(DocentDashboard::class)->coachIds($request->user()));
+        $query = DB::table('begeleidingsnotitie')->where('id_notitie', $note);
+        if (Schema::hasColumn('begeleidingsnotitie', 'idstudent')
+            && Schema::hasColumn('begeleidingsnotitie', 'idcoach')) {
+            $query->whereIn('idstudent', $ids)
+                ->whereIn('idcoach', app(DocentDashboard::class)->coachIds($request->user()));
+        } elseif (Schema::hasColumn('begeleidingsnotitie', 'lid_idlid')) {
+            $query->whereIn('lid_idlid', $ids);
+        } else {
+            abort(500, 'Het notitieschema wordt niet ondersteund.');
+        }
         abort_unless((clone $query)->exists(), 404);
 
         return $query;
@@ -104,8 +112,20 @@ class DocentController extends Controller
     {
         $data = $request->validate(['idstudent' => ['required', 'integer'], 'inhoud' => ['required', 'string', 'max:10000'], 'type' => ['required', Rule::in(['Notitie', 'Voortgang', 'Afspraak'])]]);
         $this->student($request, (int) $data['idstudent']);
-        $coachId = app(DocentDashboard::class)->coachIds($request->user())->first();
-        DB::table('begeleidingsnotitie')->insert($data + ['idcoach' => $coachId, 'datum' => now()]);
+        if (Schema::hasColumn('begeleidingsnotitie', 'idstudent')
+            && Schema::hasColumn('begeleidingsnotitie', 'idcoach')) {
+            $coachId = app(DocentDashboard::class)->coachIds($request->user())->first();
+            DB::table('begeleidingsnotitie')->insert($data + ['idcoach' => $coachId, 'datum' => now()]);
+        } elseif (Schema::hasColumn('begeleidingsnotitie', 'lid_idlid')) {
+            DB::table('begeleidingsnotitie')->insert([
+                'lid_idlid' => (int) $data['idstudent'],
+                'inhoud' => $data['inhoud'],
+                'type' => $data['type'],
+                'datum' => now(),
+            ]);
+        } else {
+            abort(500, 'Het notitieschema wordt niet ondersteund.');
+        }
 
         return $this->done('notities');
     }
@@ -128,11 +148,32 @@ class DocentController extends Controller
 
     private function meeting(Request $request, int $meeting): Builder
     {
-        $query = DB::table('gesprekken')->where('idgesprek', $meeting)
-            ->whereIn('student_idstudent', app(DocentDashboard::class)->studentIds($request->user()));
+        $query = DB::table('gesprekken')->where('idgesprek', $meeting);
+        if (Schema::hasColumn('gesprekken', 'student_idstudent')) {
+            $query->whereIn('student_idstudent', app(DocentDashboard::class)->studentIds($request->user()));
+        } elseif ($this->hasLegacyMeetingParticipants()) {
+            $studentIds = app(DocentDashboard::class)->studentIds($request->user());
+            $query->whereExists(fn ($link) => $link->selectRaw('1')
+                ->from('gesprekken_has_lid as teacher_link')
+                ->whereColumn('teacher_link.gesprekken_idgesprek', 'gesprekken.idgesprek')
+                ->where('teacher_link.lid_idlid', $request->user()->getKey()))
+                ->whereExists(fn ($link) => $link->selectRaw('1')
+                    ->from('gesprekken_has_lid as student_link')
+                    ->whereColumn('student_link.gesprekken_idgesprek', 'gesprekken.idgesprek')
+                    ->whereIn('student_link.lid_idlid', $studentIds));
+        } else {
+            abort(500, 'Het gespreksschema wordt niet ondersteund.');
+        }
         abort_unless((clone $query)->exists(), 404);
 
         return $query;
+    }
+
+    private function hasLegacyMeetingParticipants(): bool
+    {
+        return Schema::hasTable('gesprekken_has_lid')
+            && Schema::hasColumn('gesprekken_has_lid', 'gesprekken_idgesprek')
+            && Schema::hasColumn('gesprekken_has_lid', 'lid_idlid');
     }
 
     private function meetingData(Request $request): array
@@ -153,7 +194,19 @@ class DocentController extends Controller
         $student = $request->validate(['student_idstudent' => ['required', 'integer']]);
         $this->student($request, (int) $student['student_idstudent']);
         $data = $this->meetingData($request);
-        DB::table('gesprekken')->insert($data + $student);
+        if (Schema::hasColumn('gesprekken', 'student_idstudent')) {
+            DB::table('gesprekken')->insert($data + $student);
+        } elseif ($this->hasLegacyMeetingParticipants()) {
+            DB::transaction(function () use ($data, $student, $request): void {
+                $meeting = DB::table('gesprekken')->insertGetId($data, 'idgesprek');
+                DB::table('gesprekken_has_lid')->insert([
+                    ['gesprekken_idgesprek' => $meeting, 'lid_idlid' => $request->user()->getKey()],
+                    ['gesprekken_idgesprek' => $meeting, 'lid_idlid' => (int) $student['student_idstudent']],
+                ]);
+            });
+        } else {
+            abort(500, 'Het gespreksschema wordt niet ondersteund.');
+        }
 
         return $this->done('gesprekken');
     }
@@ -168,9 +221,59 @@ class DocentController extends Controller
 
     public function deleteMeeting(Request $request, int $meeting): RedirectResponse
     {
-        $this->meeting($request, $meeting)->delete();
+        $query = $this->meeting($request, $meeting);
+        if (! Schema::hasColumn('gesprekken', 'student_idstudent')) {
+            DB::transaction(function () use ($meeting): void {
+                DB::table('gesprekken_has_lid')->where('gesprekken_idgesprek', $meeting)->delete();
+                DB::table('gesprekken')->where('idgesprek', $meeting)->delete();
+            });
+        } else {
+            $query->delete();
+        }
 
         return $this->done('gesprekken');
+    }
+
+    public function approveMeetingRequest(Request $request, int $aanvraag): RedirectResponse
+    {
+        return $this->updateMeetingRequestStatus($request, $aanvraag, 'approved');
+    }
+
+    public function rejectMeetingRequest(Request $request, int $aanvraag): RedirectResponse
+    {
+        return $this->updateMeetingRequestStatus($request, $aanvraag, 'rejected');
+    }
+
+    private function updateMeetingRequestStatus(Request $request, int $aanvraag, string $status): RedirectResponse
+    {
+        abort_unless(
+            $request->user()?->dashboardRoleKey() === 'docent'
+                && strtolower((string) $request->user()->status) === 'actief',
+            403,
+        );
+        abort_unless(Schema::hasTable('gesprekken')
+            && Schema::hasColumn('gesprekken', 'idgesprek')
+            && Schema::hasColumn('gesprekken', 'onderwerp')
+            && Schema::hasColumn('gesprekken', 'afspraken')
+            && $this->hasLegacyMeetingParticipants(), 404);
+
+        $studentMemberIds = app(DocentDashboard::class)->studentMemberIds($request->user());
+        $query = DB::table('gesprekken')
+            ->where('idgesprek', $aanvraag)
+            ->where('onderwerp', DocentDashboard::MEETING_REQUEST_TOPIC)
+            ->where('afspraken', 'pending')
+            ->whereExists(fn ($link) => $link->selectRaw('1')
+                ->from('gesprekken_has_lid as teacher_link')
+                ->whereColumn('teacher_link.gesprekken_idgesprek', 'gesprekken.idgesprek')
+                ->where('teacher_link.lid_idlid', $request->user()->getKey()))
+            ->whereExists(fn ($link) => $link->selectRaw('1')
+                ->from('gesprekken_has_lid as student_link')
+                ->whereColumn('student_link.gesprekken_idgesprek', 'gesprekken.idgesprek')
+                ->whereIn('student_link.lid_idlid', $studentMemberIds));
+        $updated = $query->update(['afspraken' => $status]);
+        abort_unless($updated === 1, 404);
+
+        return $this->done('gesprekken', ['aanvragen' => 'verwerkt']);
     }
 
     public function updateOutcome(Request $request, int $outcome): RedirectResponse
