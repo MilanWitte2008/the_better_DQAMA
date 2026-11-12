@@ -1,4 +1,4 @@
-{{-- De gegevensservice is uitsluitend gekoppeld aan deze view; andere dashboards blijven ongewijzigd. --}}
+﻿{{-- De gegevensservice is uitsluitend gekoppeld aan deze view; andere dashboards blijven ongewijzigd. --}}
 @php
     $dashboard = app(\App\DocentDashboard::class)->data($user, request());
     extract($dashboard, EXTR_SKIP);

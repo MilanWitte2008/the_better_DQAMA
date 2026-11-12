@@ -113,22 +113,56 @@
         ->limit(5)
         ->get();
 
-    // Haal coachgesprekken alleen op als de benodigde tabellen en kolommen bestaan.
+    // Ondersteun zowel studentprofielen als gesprekken uit de bestaande ledenkoppeling.
     $conversations = collect();
-    if ($db->getSchemaBuilder()->hasTable('gesprekken')
-        && $db->getSchemaBuilder()->hasTable('student')
-        && $db->getSchemaBuilder()->hasColumn('student', 'lid_idlid')
-        && $db->getSchemaBuilder()->hasColumn('student', 'idstudent')
-        && $db->getSchemaBuilder()->hasColumn('gesprekken', 'student_idstudent')
-        && $db->getSchemaBuilder()->hasColumn('gesprekken', 'datum')
-        && $db->getSchemaBuilder()->hasColumn('gesprekken', 'onderwerp')
-        && $db->getSchemaBuilder()->hasColumn('gesprekken', 'inhoud')
-        && $db->getSchemaBuilder()->hasColumn('gesprekken', 'afspraken')) {
+    $schema = $db->getSchemaBuilder();
+    $hasConversationFields = $schema->hasTable('gesprekken')
+        && $schema->hasColumn('gesprekken', 'datum')
+        && $schema->hasColumn('gesprekken', 'onderwerp')
+        && $schema->hasColumn('gesprekken', 'inhoud')
+        && $schema->hasColumn('gesprekken', 'afspraken');
+    if ($hasConversationFields
+        && $schema->hasTable('student')
+        && $schema->hasColumn('student', 'lid_idlid')
+        && $schema->hasColumn('student', 'idstudent')
+        && $schema->hasColumn('gesprekken', 'student_idstudent')) {
         $conversations = $db->table('gesprekken as conversation')
             ->join('student', 'student.idstudent', '=', 'conversation.student_idstudent')
             ->where('student.lid_idlid', $memberId)
             ->orderByDesc('conversation.datum')
             ->select('conversation.datum', 'conversation.onderwerp', 'conversation.inhoud', 'conversation.afspraken')
+            ->get();
+    } elseif ($hasConversationFields
+        && $schema->hasTable('gesprekken_has_lid')
+        && $schema->hasColumn('gesprekken_has_lid', 'gesprekken_idgesprek')
+        && $schema->hasColumn('gesprekken_has_lid', 'lid_idlid')) {
+        $conversations = $db->table('gesprekken as conversation')
+            ->join('gesprekken_has_lid as participant', 'participant.gesprekken_idgesprek', '=', 'conversation.idgesprek')
+            ->where('participant.lid_idlid', $memberId)
+            ->orderByDesc('conversation.datum')
+            ->select('conversation.datum', 'conversation.onderwerp', 'conversation.inhoud', 'conversation.afspraken')
+            ->distinct()
+            ->get();
+    }
+
+    // Toon alleen notities die rechtstreeks aan deze student gekoppeld zijn.
+    $notes = collect();
+    if ($schema->hasTable('begeleidingsnotitie')
+        && $schema->hasColumn('begeleidingsnotitie', 'lid_idlid')) {
+        $notes = $db->table('begeleidingsnotitie')
+            ->where('lid_idlid', $memberId)
+            ->orderByDesc('datum')
+            ->get();
+    } elseif ($schema->hasTable('begeleidingsnotitie')
+        && $schema->hasColumn('begeleidingsnotitie', 'idstudent')
+        && $schema->hasTable('student')
+        && $schema->hasColumn('student', 'idstudent')
+        && $schema->hasColumn('student', 'lid_idlid')) {
+        $notes = $db->table('begeleidingsnotitie as note')
+            ->join('student', 'student.idstudent', '=', 'note.idstudent')
+            ->where('student.lid_idlid', $memberId)
+            ->orderByDesc('note.datum')
+            ->select('note.id_notitie', 'note.inhoud', 'note.datum', 'note.type')
             ->get();
     }
 
@@ -174,6 +208,7 @@
         'outcomes' => $outcomes,
         'goalTitleColumn' => $goalTitleColumn,
         'conversations' => $conversations,
+        'notes' => $notes,
     ];
     $progressPercent = $outcomeProgress->total > 0
         ? (int) round(($outcomeProgress->completed / $outcomeProgress->total) * 100)
@@ -369,6 +404,22 @@
             </ul>
         @else
             <p class="info-strip">Er zijn nog geen coachgesprekken aan jouw account gekoppeld.</p>
+        @endif
+    </section>
+    <section class="panel" id="notities" data-dashboard-section="notities">
+        <h3>Notities van je docent</h3>
+        @if ($studentData['notes']->isNotEmpty())
+            <ul class="updates-list">
+                @foreach ($studentData['notes'] as $note)
+                    <li>
+                        @if ($note->datum)<time>{{ \Illuminate\Support\Carbon::parse($note->datum)->format('d-m-Y') }}</time><br>@endif
+                        @if ($note->type)<strong>{{ ucfirst($note->type) }}</strong><br>@endif
+                        {{ $note->inhoud ?: 'Notitie zonder inhoud' }}
+                    </li>
+                @endforeach
+            </ul>
+        @else
+            <p class="info-strip">Er zijn nog geen notities aan jouw account gekoppeld.</p>
         @endif
     </section>
         {{-- Toon recente reflecties en de urenregistratie van de afgelopen maanden. --}}
