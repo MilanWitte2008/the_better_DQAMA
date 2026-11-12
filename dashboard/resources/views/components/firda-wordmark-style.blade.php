@@ -1,4 +1,4 @@
-﻿/* Eén rustig woordmerk, met voldoende contrast op elke achtergrond. */
+/* Eén rustig woordmerk, met voldoende contrast op elke achtergrond. */
 .firda-wordmark {
 display:inline-block; flex-shrink:0;
 font-size:42px; line-height:1;

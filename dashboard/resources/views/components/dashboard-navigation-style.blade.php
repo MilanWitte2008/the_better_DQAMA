@@ -54,42 +54,6 @@ body.dashboard-navigation .topbar p {margin:7px 0 0;font-size:13px;color:#e4f0f9
 body.dashboard-navigation .topbar-actions {display:flex;align-items:center;gap:18px;flex-shrink:0}
 body.dashboard-navigation .topbar-actions form {margin:0}
 body.dashboard-navigation .topbar .logout-button {border:0;border-radius:0;padding:0;background:none;color:white;font-size:12px;cursor:pointer}
-body.dashboard-navigation .topbar .notification-wrapper {position:relative}
-body.dashboard-navigation .topbar .notification {
-    width:44px;height:44px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.3);
-    border-radius:12px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;
-    transition:background 160ms ease,border-color 160ms ease,transform 160ms ease;
-}
-body.dashboard-navigation .topbar .notification svg,
-body.dashboard-navigation .topbar .notification-panel-icon svg {
-    width:21px;height:21px;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.8;
-}
-body.dashboard-navigation .topbar .notification:hover,
-body.dashboard-navigation .topbar .notification:focus-visible,
-body.dashboard-navigation .topbar .notification[aria-expanded="true"] {
-    border-color:rgba(255,255,255,.65);background:rgba(255,255,255,.2);transform:translateY(-1px);
-}
-body.dashboard-navigation .topbar .notification:focus-visible {outline:2px solid #fff;outline-offset:2px}
-body.dashboard-navigation .topbar .notification-panel {
-    position:absolute;z-index:10;top:calc(100% + 14px);right:0;width:min(340px,calc(100vw - 36px));padding:20px;
-    border:1px solid #e1eaf0;border-radius:14px;background:#fff;color:#092c4d;
-    box-shadow:0 16px 42px rgba(6,40,61,.22);animation:notification-appear 160ms ease-out;
-}
-body.dashboard-navigation .topbar .notification-panel-heading {display:flex;align-items:center;gap:12px}
-body.dashboard-navigation .topbar .notification-panel h2 {margin:0;color:#092c4d;font-size:17px;font-weight:700;line-height:1.3}
-body.dashboard-navigation .topbar .notification-panel-icon {
-    width:38px;height:38px;display:grid;flex-shrink:0;place-items:center;border-radius:11px;
-    background:#eaf5fc;color:#127eb5;
-}
-body.dashboard-navigation .topbar .notification-panel p {margin:16px 0 0;color:#526a7b;font-size:14px;line-height:1.6}
-@keyframes notification-appear {
-    from {opacity:0;transform:translateY(-5px)}
-    to {opacity:1;transform:translateY(0)}
-}
-@media(prefers-reduced-motion:reduce) {
-    body.dashboard-navigation .topbar .notification,
-    body.dashboard-navigation .topbar .notification-panel {animation:none;transition:none}
-}
 body.docent-page.dashboard-navigation .workspace {margin-left:258px}
 body.docent-page.dashboard-navigation .sidebar {overflow-y:auto}
 body.docent-page.dashboard-navigation .sidebar nav a>span {font-size:13px}

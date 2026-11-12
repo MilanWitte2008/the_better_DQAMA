@@ -43,6 +43,3 @@
 /* Acties zijn direct zichtbaar; een opslagbevestiging blijft bij een ankerlink in beeld. */
 .student-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.student-actions form{margin:0}.student-actions .button,.student-actions .danger{padding:9px 12px;font-size:11px}.edit-panel summary{padding:7px 0}.save-feedback{position:fixed;right:24px;bottom:24px;max-width:min(480px,calc(100vw - 32px));z-index:20;box-shadow:0 8px 30px #092c4d22}.validation-feedback:focus{outline:3px solid #ed9410}.save-feedback button{margin-left:12px;background:none;border:0;cursor:pointer;color:inherit}
 .edit-panel summary.create-student-button{display:list-item;list-style-position:inside;padding:11px 15px;border-radius:7px;background:#1664ac;color:#fff;width:fit-content}
-.student-group-summary{display:grid;justify-items:end;gap:8px}
-.teacher-class-list{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;font-size:10px;color:#6487aa}
-.teacher-class-empty{font-size:10px}
